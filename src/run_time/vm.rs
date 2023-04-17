@@ -21,8 +21,13 @@ impl VM {
             match opcode {
                 op @ (OpAdd | OpMultiply | OpDivide |
                     OpModulo | OpSubtract) => self.bin_op(op)?,
-                OpNegate => todo!(),
+                OpNegate => {
+                    let a = self.stack.pop()?;
+                    self.stack.push((-a)?);
+                },
                 OpNumber(n) => self.stack.push(*n),
+                OpFloat(f) => self.stack.push(*f),
+                OpString(s) => self.stack.push(s.to_string()),
             }
             at += 1;
         }

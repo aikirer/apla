@@ -1,17 +1,31 @@
 use std::{error::Error, fmt::Display};
 
-use crate::token::Token;
+use crate::{token::Token, expr_type::ExprType, spanned::Spanned};
+
+use super::ast::expr::Operator;
 
 #[derive(Debug)]
 pub enum CTErrorKind {
     Expected(Token),
     ExpectedButFound(Token, Token),
     Unexpected(Token),
+    MismatchedTypes(ExprType, ExprType),
+    CantUseOpForTypes(Operator, ExprType),
+    ExpectedOperator,
+    HadError,
 }
 
 #[derive(Debug)]
 pub struct CTError {
     pub kind: CTErrorKind
+}
+
+impl CTError {
+    pub fn new(kind: CTErrorKind) -> Self {
+        Self {
+            kind
+        }
+    }
 }
 
 impl Error for CTError {}
@@ -30,6 +44,44 @@ impl Display for CTErrorKind {
                 format!("Expected '{t}', found '{t2}'!"),
             Self::Unexpected(t) => 
                 format!("Unexpected '{t}'!"),
+            Self::CantUseOpForTypes(op, t) => 
+                format!("Cannot use the operator '{}' for '{t}'!", op.to_string()),
+            Self::MismatchedTypes(t1, t2) => 
+                format!("Mismatched types: '{t1}', '{t2}'!"),
+            Self::ExpectedOperator => 
+                format!("Expected an operator here!"),
+            Self::HadError => "Had an error!".to_string(), // tmp
         })
     }
+}
+
+pub fn report_error(error: &Spanned<CTError>, text: &str) {
+    print!(" | [error] {}", **error);
+    let mut at_char = error.start;
+    let mut at_line = 1;
+    let line = text.lines().find(|line| {
+        if line.len() <= at_char {
+            at_char -= line.len();
+            at_line += 1;
+            false
+        } else {
+            true
+        }
+    });
+    println!(" [line {at_line}]");
+    let line = match line {
+        Some(l) => l,
+        None => {
+            eprintln!(" | couldn't find the error in code!");
+            return;
+        }
+    };
+    print!(" | {line}\n | ");
+    for _ in 0..at_char {
+        print!(" ");
+    }
+    for _ in 0..error.len {
+        print!("^");
+    }
+    println!()
 }

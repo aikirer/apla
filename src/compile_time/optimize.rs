@@ -24,7 +24,7 @@ impl Optimize for AstNode {
 
 macro_rules! bin_op {
     ($self: expr, $left: expr, $right: expr, $op: tt) => {
-        match ($left.as_ref(), $right.as_ref()) {
+        match ($left.obj_ref(), $right.obj_ref()) {
             (Expr::Int(a), Expr::Int(b)) => *$self = Expr::Int(a $op b),
             (Expr::Float(a), Expr::Float(b)) => *$self = Expr::Float(a $op b),
             _ => (),
@@ -40,7 +40,7 @@ impl Optimize for Expr {
                 right.optimize();
                 match op {
                     Operator::Plus => {
-                        match (left.as_ref(), right.as_ref()) {
+                        match (left.obj_ref(), right.obj_ref()) {
                             (Expr::Int(a), Expr::Int(b)) => 
                                 *self = Expr::Int(a + b),
                             (Expr::Float(a), Expr::Float(b)) => 
@@ -57,6 +57,21 @@ impl Optimize for Expr {
                     Operator::Percent => bin_op!(self, left, right, %),
                 }
             },
+            Expr::Unary { expr } => {
+                match expr.obj_mut() {
+                    Expr::Int(i) => *self = Expr::Int(-*i),
+                    Expr::Float(f) => *self = Expr::Float(-*f),
+                    Expr::Unary { expr } => {
+                        expr.optimize(); // expr might be unary
+                        match expr.obj_ref() {
+                            Expr::Int(i) => *self = Expr::Int(*i),
+                            Expr::Float(f) => *self = Expr::Float(*f),
+                            _ => (),
+                        }
+                    },
+                    _ => (),
+                }
+            }
             _ => (),
         };
     }

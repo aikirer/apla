@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Plus, Minus, Slash, Percent, Star, Colon, Dot, Equals, EqualsEquals,
     BitAnd, BitOr, Greater, Smaller, NotEqual, Bang, Comma,

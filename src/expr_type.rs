@@ -1,8 +1,8 @@
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ExprType {
-    Int, Float, String, Bool
+    Int, Float, String, Bool, ToBeInferred, Any,
 }
 
 impl Display for ExprType {
@@ -12,6 +12,8 @@ impl Display for ExprType {
             ExprType::Float => "float",
             ExprType::String => "string",
             ExprType::Bool => "bool",
+            ExprType::ToBeInferred => "not inferred",
+            ExprType::Any => "any",
         })
     }
 }

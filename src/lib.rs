@@ -1,8 +1,9 @@
+use run_time::bytecode::OpCode;
 use scanner::Scanner;
 
 use crate::{
     compile_time::{parser::Parser, 
-        ast_compiler::Compiler, optimize::Optimize}, 
+        ast_compiler::Compiler, optimize::Optimize, resolve::Resolve}, 
     run_time::vm::VM
 };
 
@@ -13,7 +14,7 @@ pub mod token;
 pub mod run_time;
 pub mod spanned;
 
-pub fn run(input: String) {
+pub fn compile(input: &str) -> Result<Vec<OpCode>, ()> {
     let mut scanner = Scanner::new(&input);
     let tokens = crate::measure_time!(scanner.scan(), "scanning");
     println!("result: {tokens:?}");
@@ -21,23 +22,37 @@ pub fn run(input: String) {
     let mut ast = crate::measure_time!(parser.parse(), "parsing");
     println!("ast: {ast:?}");
     crate::measure_time!(ast.optimize(), "optimizing");
+    crate::measure_time!(match ast.resolve() {
+        Ok(()) => (),
+        Err(_) => {
+            return Err(())
+        },
+    }, "resolving");
     println!("ast after optimizing: {ast:?}");
     let mut compiler = Compiler::new(&ast);
     let bytecode = crate::measure_time!(compiler.compile(), "compiling");
+    Ok(bytecode)
+}
+
+pub fn run(input: String) -> Result<(), ()> {
+    let bytecode = compile(&input)?;
     println!("generated code: {bytecode:?}");
     let mut vm = VM::new();
     if let Err(er) = vm.execute(&bytecode) {
-        println!("[ERROR] {er}");
+        println!("[RUNTIME ERROR] {er}");
     }
+    Ok(())
 }
 
 pub fn repl() {
-    let mut buf = String::new();
-    if let Err(er) = std::io::stdin().read_line(&mut buf) {
-        eprintln!("Couldn't read input! {er}");
-        std::process::exit(1);
-    };
-    run(buf);
+    loop {
+        let mut buf = String::new();
+        if let Err(er) = std::io::stdin().read_line(&mut buf) {
+            eprintln!("Couldn't read input! {er}");
+            std::process::exit(1);
+        };
+        _ = run(buf);
+    }
 }
 
 pub fn run_file(_file_name: &str) {

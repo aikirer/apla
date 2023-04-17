@@ -1,8 +1,22 @@
-use crate::{token::{Token, PrecedenceLevel}, run_time::bytecode::OpCode};
+use std::fmt::Display;
 
-#[derive(Debug)]
+use crate::{token::{Token, PrecedenceLevel}, run_time::bytecode::OpCode, expr_type::ExprType, spanned::Spanned};
+
+#[derive(Debug, Clone)]
 pub enum Operator {
     Plus, Minus, Slash, Star, Percent
+}
+
+impl Display for Operator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Operator::Plus => "+",
+            Operator::Minus => "-",
+            Operator::Slash => "/",
+            Operator::Star => "*",
+            Operator::Percent => "%",
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -13,11 +27,11 @@ pub enum Expr {
     Ident(String),
     Binary {
         op: Operator,
-        left: Box<Expr>,
-        right: Box<Expr>,
+        left: Box<Spanned<Expr>>,
+        right: Box<Spanned<Expr>>,
     },
     Unary {
-        expr: Box<Expr>
+        expr: Box<Spanned<Expr>>
     }
 }
 
@@ -56,6 +70,15 @@ impl Operator {
             Operator::Percent => OpCode::OpModulo,
         }
     }
+
+    pub fn get_legal_types(&self) -> &[ExprType] {
+        use ExprType as ET;
+        match self {
+            Operator::Plus => &[ET::Float, ET::Int, ET::String],
+            Operator::Minus | Operator::Slash | Operator::Star | 
+            Operator::Percent => &[ET::Int, ET::Float],
+        }
+    }
 }
 
 impl Expr {
@@ -70,7 +93,7 @@ impl Expr {
     }
 
     pub fn new_binary(
-        left: Box<Expr>, right: Box<Expr>, op: Operator
+        left: Box<Spanned<Expr>>, right: Box<Spanned<Expr>>, op: Operator
     ) -> Expr 
     {
         Expr::Binary { 

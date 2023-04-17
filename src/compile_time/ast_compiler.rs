@@ -35,13 +35,14 @@ impl Compile for AstNode {
     }
 }
 
+use OpCode::*; // OpCodes are prefixed with Op
 impl Compile for Expr {
     fn compile(&self) -> compile::Output {
         let mut out = vec![];
         match self {
-            Expr::Int(n) => self.add(&mut out, OpCode::OpNumber(*n)),
-            Expr::Float(_) => todo!(),
-            Expr::String(_) => todo!(),
+            Expr::Int(n) => self.add(&mut out, OpNumber(*n)),
+            Expr::Float(f) => self.add(&mut out, OpFloat(*f)),
+            Expr::String(s) => self.add(&mut out, OpString(s.to_string())),
             Expr::Ident(_) => todo!(),
             Expr::Binary { op, left, right } => {
                 out.extend(left.compile());
@@ -49,7 +50,7 @@ impl Compile for Expr {
                 self.add(&mut out, op.as_opcode());
             },
             Expr::Unary { expr } => {
-                expr.compile();
+                out.extend(expr.compile());
                 self.add(&mut out, OpCode::OpNegate);
             },
         }

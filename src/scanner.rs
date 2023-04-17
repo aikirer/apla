@@ -91,7 +91,9 @@ impl<'a> Scanner<'a> {
 
     fn string(&mut self, closing_char: char) -> Token {
         self.advance(); // skip the opening char (")
-        Token::Str(self.collect_chars_while(|c| c != closing_char))
+        let s = Token::Str(self.collect_chars_while(|c| c != closing_char));
+        self.advance();
+        s
     }
 
     fn token_if_next_else(

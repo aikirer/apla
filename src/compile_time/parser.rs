@@ -35,6 +35,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(mut self) -> Ast {
+        self.ast.text = Some(self.txt.to_string());
         let node = self.expr();
         self.ast.nodes.push(node);
         self.ast
@@ -68,7 +69,7 @@ impl<'a> Parser<'a> {
             ExprRole::Expr => todo!(),
             ExprRole::Object => todo!(),
             ExprRole::Number => self.number(ast),
-            ExprRole::String => todo!(),
+            ExprRole::String => self.string(ast),
             ExprRole::Grouping => self.grouping(ast),
             ExprRole::Bool => todo!(),
             ExprRole::Float => todo!(),
@@ -78,14 +79,23 @@ impl<'a> Parser<'a> {
 
     fn binary(&mut self, ast: &mut Ast) {
         let left = ast.nodes.pop().unwrap();
-        let op = Operator::try_from_token(self.current).unwrap_or_else(|| todo!());
+        let mut _poisoned = false;
+        let op = match Operator::try_from_token(self.current) {
+            Some(op) => op,
+            None => {
+                // Keep parsing the expression but
+                // poison the tree node
+                _poisoned = true;
+                Operator::Plus
+            },
+        };  
         self.advance();
         self.parse_prec(op.prec_level(), ast);
         let right = match ast.nodes.pop() {
             Some(node) => node,
             None => {
-                self.report_error(self.make_error(CTErrorKind::Unexpected(self.current.cloned())));
-                AstNode::Expr(Expr::Int(0))
+                self.report_error(&self.make_error(CTErrorKind::Unexpected(self.current.cloned())));
+                AstNode::Expr(Spanned::new(Expr::Int(0), 0, 0))
             }
         };
         let left = match left {
@@ -94,25 +104,55 @@ impl<'a> Parser<'a> {
         let right = match right {
             AstNode::Expr(e) => e,
         };
-        ast.nodes.push(AstNode::Expr(Expr::new_binary(
-            Box::new(left),
-            Box::new(right),
-            op,
+        let (start, end) = Spanned::get_start_and_len(&left, &right);
+        ast.nodes.push(AstNode::Expr(Spanned::new(
+            Expr::new_binary(
+                Box::new(left),
+                Box::new(right),
+                op,
+            ),
+            start, end
         )));
     }
 
     fn unary(&mut self, ast: &mut Ast) {
-        self.advance();
-        ast.nodes.push(AstNode::Expr(Expr::Unary {
-            expr: Box::new(Expr::try_from_token(self.current).unwrap()),
-        }));
+        let token_start = self.current.start;
+        self.consume_one_of(&[Token::Minus, Token::Bang]);
+        self.parse_prec(PrecedenceLevel::Unary, ast);
+        let expr = match ast.nodes.pop() {
+            Some(node) => node,
+            None => {
+                self.report_error(&self.make_error(CTErrorKind::Unexpected(self.current.cloned())));
+                AstNode::Expr(Spanned::new(Expr::Int(0), 0, 0))
+            }
+        };
+        let expr = match expr {
+            AstNode::Expr(e) => e,
+        };
+        let (start, size) = (token_start, 
+            (self.current.start - token_start) + self.current.len);
+        ast.nodes.push(AstNode::Expr(Spanned::new(Expr::Unary { 
+            expr: Box::new(expr)
+        }, start, size)));
         self.advance();
     }
 
     fn number(&mut self, ast: &mut Ast) {
         self.advance();
-        ast.nodes
-            .push(AstNode::Expr(Expr::try_from_token(self.previous).unwrap()));
+        let (start, end) = (self.previous.start, self.previous.len);
+        ast.nodes.push(AstNode::Expr(Spanned::new(
+            Expr::try_from_token(self.previous).unwrap(),
+            start, end)
+        ));
+    }
+
+    fn string(&mut self, ast: &mut Ast) {
+        self.advance();
+        let (start, end) = (self.previous.start, self.previous.len);
+        ast.nodes.push(AstNode::Expr(Spanned::new(
+            Expr::try_from_token(self.previous).unwrap(),
+            start, end)
+        ));
     }
 
     fn grouping(&mut self, ast: &mut Ast) {
@@ -121,12 +161,16 @@ impl<'a> Parser<'a> {
         self.advance(); // change to consume rparen
     }
 
-    // fn consume(&mut self, token: &Token) -> Option<&'a Token> {
-    //     if self.current == token {
-    //         self.advance();
-    //         Some(token);
-    //     }
-    // }
+    fn consume(&mut self, token: &'a Token) -> Option<&'a Token> {
+        if &**self.current == token {
+            self.advance();
+            Some(token)
+        } else { None }
+    }
+
+    fn consume_one_of(&mut self, tokens: &'a [Token]) -> Option<&'a Token> {
+        tokens.iter().find(|t| self.consume(t).is_some())
+    }
 
     fn advance(&mut self) -> Option<&'a Token> {
         self.at += 1;
@@ -143,34 +187,7 @@ impl<'a> Parser<'a> {
         )
     }
 
-    fn report_error(&self, error: Spanned<CTError>) {
-        print!(" | [error] {}", *error);
-        let mut at_char = error.start;
-        let mut at_line = 0;
-        let line = self.txt.lines().find(|line| {
-            if line.len() <= at_char {
-                at_char -= line.len();
-                at_line += 1;
-                false
-            } else {
-                true
-            }
-        });
-        println!(" [line {at_line}]");
-        let line = match line {
-            Some(l) => l,
-            None => {
-                eprintln!(" | couldn't find the error in code!");
-                return;
-            }
-        };
-        print!(" | {line}\n | ");
-        for _ in 0..at_char {
-            print!(" ");
-        }
-        for _ in 0..self.current.len() {
-            print!("^");
-        }
-        println!()
+    fn report_error(&self, error: &Spanned<CTError>) {
+        super::error::report_error(error, self.txt);
     }
 }
