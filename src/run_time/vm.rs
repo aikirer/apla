@@ -31,14 +31,14 @@ impl VM {
     }
 
     fn bin_op(&mut self, kind: &OpCode) -> Result<(), RTError>{
-        let a = self.stack.pop()?;
         let b = self.stack.pop()?;
+        let a = self.stack.pop()?;
         self.stack.push_dir(match kind {
             OpAdd => (a + b)?,
-            OpSubtract => (a + b)?,
-            OpMultiply => (a + b)?,
-            OpDivide => (a + b)?,
-            OpModulo => (a + b)?,
+            OpSubtract => (a - b)?,
+            OpMultiply => (a * b)?,
+            OpDivide => (a / b)?,
+            OpModulo => (a % b)?,
             _ => panic!()
         });
         Ok(())

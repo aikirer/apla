@@ -1,6 +1,10 @@
 use scanner::Scanner;
 
-use crate::{compile_time::{parser::Parser, ast_compiler::Compiler}, run_time::vm::VM};
+use crate::{
+    compile_time::{parser::Parser, 
+        ast_compiler::Compiler, optimize::Optimize}, 
+    run_time::vm::VM
+};
 
 pub mod expr_type;
 pub mod scanner;
