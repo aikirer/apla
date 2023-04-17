@@ -69,6 +69,14 @@ impl Optimize for Expr {
                             _ => (),
                         }
                     },
+                    Expr::Binary { .. } => {
+                        expr.optimize();
+                        match expr.obj_ref() {
+                            Expr::Int(i) => *self = Expr::Int(*i),
+                            Expr::Float(f) => *self = Expr::Float(*f),
+                            _ => (),
+                        }
+                    }
                     _ => (),
                 }
             }

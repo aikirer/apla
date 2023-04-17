@@ -19,6 +19,7 @@ pub struct Parser<'a> {
     pub previous: &'a SpanToken,
     pub ast: Ast,
     pub txt: &'a str,
+    had_error: bool,
     at: usize,
 }
 
@@ -30,21 +31,22 @@ impl<'a> Parser<'a> {
             previous: &tokens[0],
             ast: Ast::new(),
             txt,
+            had_error: false,
             at: 0,
         }
     }
 
-    pub fn parse(mut self) -> Ast {
+    pub fn parse(mut self) -> Option<(Ast, bool)> {
         self.ast.text = Some(self.txt.to_string());
-        let node = self.expr();
+        let node = self.expr()?;
         self.ast.nodes.push(node);
-        self.ast
+        Some((self.ast, self.had_error))
     }
 
-    fn expr(&mut self) -> AstNode {
+    fn expr(&mut self) -> Option<AstNode> {
         let mut ast = Ast::new();
         self.parse_prec(PrecedenceLevel::Assignment, &mut ast);
-        ast.nodes.pop().unwrap_or_else(|| todo!("error handling"))
+        ast.nodes.pop()
     }
 
     fn parse_prec(&mut self, level: PrecedenceLevel, ast: &mut Ast) {
@@ -79,13 +81,14 @@ impl<'a> Parser<'a> {
 
     fn binary(&mut self, ast: &mut Ast) {
         let left = ast.nodes.pop().unwrap();
-        let mut _poisoned = false;
+        let mut poisoned = false;
         let op = match Operator::try_from_token(self.current) {
             Some(op) => op,
             None => {
                 // Keep parsing the expression but
                 // poison the tree node
-                _poisoned = true;
+                poisoned = true;
+                self.report_error(&self.make_error(CTErrorKind::ExpectedOperator));
                 Operator::Plus
             },
         };  
@@ -95,6 +98,7 @@ impl<'a> Parser<'a> {
             Some(node) => node,
             None => {
                 self.report_error(&self.make_error(CTErrorKind::Unexpected(self.current.cloned())));
+                poisoned = true;
                 AstNode::Expr(Spanned::new(Expr::Int(0), 0, 0))
             }
         };
@@ -105,14 +109,17 @@ impl<'a> Parser<'a> {
             AstNode::Expr(e) => e,
         };
         let (start, end) = Spanned::get_start_and_len(&left, &right);
-        ast.nodes.push(AstNode::Expr(Spanned::new(
+        let mut span = Spanned::new(
             Expr::new_binary(
                 Box::new(left),
                 Box::new(right),
                 op,
             ),
             start, end
-        )));
+        );
+        if poisoned { span.poison(); }
+        let node = AstNode::Expr(span);
+        ast.nodes.push(node);
     }
 
     fn unary(&mut self, ast: &mut Ast) {
@@ -186,7 +193,8 @@ impl<'a> Parser<'a> {
         )
     }
 
-    fn report_error(&self, error: &Spanned<CTError>) {
+    fn report_error(&mut self, error: &Spanned<CTError>) {
+        self.had_error = true;
         super::error::report_error(error, self.txt);
     }
 }
