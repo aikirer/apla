@@ -130,11 +130,10 @@ impl<'a> Parser<'a> {
             AstNode::Expr(e) => e,
         };
         let (start, size) = (token_start, 
-            (self.current.start - token_start) + self.current.len);
+            (self.previous.start - token_start) + self.previous.len);
         ast.nodes.push(AstNode::Expr(Spanned::new(Expr::Unary { 
             expr: Box::new(expr)
         }, start, size)));
-        self.advance();
     }
 
     fn number(&mut self, ast: &mut Ast) {

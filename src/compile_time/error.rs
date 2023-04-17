@@ -11,6 +11,7 @@ pub enum CTErrorKind {
     Unexpected(Token),
     MismatchedTypes(ExprType, ExprType),
     CantUseOpForTypes(Operator, ExprType),
+    CantNegateType(ExprType),
     ExpectedOperator,
     HadError,
 }
@@ -48,6 +49,8 @@ impl Display for CTErrorKind {
                 format!("Cannot use the operator '{}' for '{t}'!", op.to_string()),
             Self::MismatchedTypes(t1, t2) => 
                 format!("Mismatched types: '{t1}', '{t2}'!"),
+            Self::CantNegateType(t) => 
+                format!("Type '{t}' cannot be negated!"),
             Self::ExpectedOperator => 
                 format!("Expected an operator here!"),
             Self::HadError => "Had an error!".to_string(), // tmp
