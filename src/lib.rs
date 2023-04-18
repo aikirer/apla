@@ -44,7 +44,7 @@ pub fn compile(input: &str) -> Result<Vec<OpCode>, ()> {
 }
 
 pub fn run(input: String) -> Result<(), ()> {
-    let bytecode = compile(&input)?;
+    let bytecode = compile(&input).unwrap_or_else(|_| std::process::exit(1));
     println!("generated code: {bytecode:?}");
     let mut vm = VM::new();
     if let Err(er) = vm.execute(&bytecode) {
@@ -64,8 +64,15 @@ pub fn repl() {
     }
 }
 
-pub fn run_file(_file_name: &str) {
-    todo!()
+pub fn run_file(file_name: &str) {
+    let content = match std::fs::read_to_string(file_name.trim()) {
+        Ok(s) => s,
+        Err(er) => {
+            eprintln!("couldn't read the file '{file_name}': {er}");
+            std::process::exit(1);
+        }
+    };
+    _ = run(content);
 }
 
 #[macro_export]
