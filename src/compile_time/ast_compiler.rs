@@ -43,6 +43,7 @@ impl Compile for Expr {
             Expr::Int(n) => self.add(&mut out, OpNumber(*n)),
             Expr::Float(f) => self.add(&mut out, OpFloat(*f)),
             Expr::String(s) => self.add(&mut out, OpString(s.to_string())),
+            Expr::Bool(b) => self.add(&mut out, OpBool(*b)),
             Expr::Ident(_) => todo!(),
             Expr::Binary { op, left, right } => {
                 out.extend(left.compile());

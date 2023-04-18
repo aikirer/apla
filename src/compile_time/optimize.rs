@@ -23,6 +23,13 @@ impl Optimize for AstNode {
 }
 
 macro_rules! bin_op {
+    ($self: expr, $left: expr, $right: expr, $op: tt, bool) => {
+        match ($left.obj_ref(), $right.obj_ref()) {
+            (Expr::Int(a), Expr::Int(b)) => *$self = Expr::Bool(a $op b),
+            (Expr::Float(a), Expr::Float(b)) => *$self = Expr::Bool(a $op b),
+            _ => (),
+        }
+    };
     ($self: expr, $left: expr, $right: expr, $op: tt) => {
         match ($left.obj_ref(), $right.obj_ref()) {
             (Expr::Int(a), Expr::Int(b)) => *$self = Expr::Int(a $op b),
@@ -55,6 +62,12 @@ impl Optimize for Expr {
                     Operator::Star => bin_op!(self, left, right, *),
                     Operator::Slash => bin_op!(self, left, right, /),
                     Operator::Percent => bin_op!(self, left, right, %),
+                    Operator::Smaller => bin_op!(self, left, right, <, bool),
+                    Operator::SmallerEqual => bin_op!(self, left, right, <=, bool),
+                    Operator::Greater => bin_op!(self, left, right, >, bool),
+                    Operator::GreaterEqual => bin_op!(self, left, right, >=, bool),
+                    Operator::Equal => bin_op!(self, left, right, ==, bool),
+                    Operator::NotEqual => bin_op!(self, left, right, !=, bool),
                 }
             },
             Expr::Unary { expr } => {

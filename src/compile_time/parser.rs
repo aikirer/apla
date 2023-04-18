@@ -51,7 +51,7 @@ impl<'a> Parser<'a> {
 
     fn parse_prec(&mut self, level: PrecedenceLevel, ast: &mut Ast) {
         let level = level as u8;
-        let prefix = self.current.get_data().prefix;
+        let prefix = dbg!(self.current).get_data().prefix;
         self.call_from_expr_role(&prefix, ast);
         let mut current_data = self.current.get_data();
         while current_data.prec_level as u8 >= level {
@@ -68,7 +68,6 @@ impl<'a> Parser<'a> {
             ExprRole::Binary => self.binary(ast),
             ExprRole::None => return None,
             ExprRole::Unary => self.unary(ast),
-            ExprRole::Expr => todo!(),
             ExprRole::Object => todo!(),
             ExprRole::Number => self.number(ast),
             ExprRole::String => self.string(ast),

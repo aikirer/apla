@@ -4,7 +4,8 @@ use crate::{token::{Token, PrecedenceLevel}, run_time::bytecode::OpCode, expr_ty
 
 #[derive(Debug, Clone)]
 pub enum Operator {
-    Plus, Minus, Slash, Star, Percent
+    Plus, Minus, Slash, Star, Percent, Smaller, SmallerEqual,
+    Greater, GreaterEqual, Equal, NotEqual
 }
 
 impl Display for Operator {
@@ -15,6 +16,12 @@ impl Display for Operator {
             Operator::Slash => "/",
             Operator::Star => "*",
             Operator::Percent => "%",
+            Operator::Smaller => "<",
+            Operator::SmallerEqual => "<=",
+            Operator::Greater => ">",
+            Operator::GreaterEqual => ">=",
+            Operator::Equal => "==",
+            Operator::NotEqual => "!=",
         })
     }
 }
@@ -25,6 +32,7 @@ pub enum Expr {
     Float(f32), 
     String(String), 
     Ident(String),
+    Bool(bool),
     Binary {
         op: Operator,
         left: Box<Spanned<Expr>>,
@@ -43,6 +51,12 @@ impl Operator {
             Token::Slash => Some(Self::Slash),
             Token::Star => Some(Self::Star),
             Token::Percent => Some(Self::Percent),
+            Token::Greater => Some(Self::Greater),
+            Token::GreaterEqual => Some(Self::GreaterEqual),
+            Token::Smaller => Some(Self::Smaller),
+            Token::SmallerEqual => Some(Self::SmallerEqual),
+            Token::EqualsEquals => Some(Self::Equal),
+            Token::NotEqual => Some(Self::NotEqual),
             _ => None,
         }
     }
@@ -53,7 +67,13 @@ impl Operator {
             Self::Minus => Token::Minus,
             Self::Slash => Token::Slash,
             Self::Star => Token::Star, 
-            Self::Percent => Token::Percent
+            Self::Percent => Token::Percent,
+            Self::Smaller => Token::Smaller,
+            Self::SmallerEqual => Token::SmallerEqual,
+            Self::Greater => Token::Greater,
+            Self::GreaterEqual => Token::GreaterEqual,
+            Self::Equal => Token::EqualsEquals,
+            Self::NotEqual => Token::NotEqual,
         }
     }
 
@@ -68,6 +88,12 @@ impl Operator {
             Operator::Slash => OpCode::OpDivide,
             Operator::Star => OpCode::OpMultiply,
             Operator::Percent => OpCode::OpModulo,
+            Operator::Smaller => OpCode::OpSmaller,
+            Operator::SmallerEqual => OpCode::OpSmallerEqual,
+            Operator::Greater => OpCode::OpGreater,
+            Operator::GreaterEqual => OpCode::OpGreaterEqual,
+            Operator::Equal => OpCode::OpEqual,
+            Operator::NotEqual => OpCode::OpNotEqual,
         }
     }
 
@@ -75,8 +101,8 @@ impl Operator {
         use ExprType as ET;
         match self {
             Operator::Plus => &[ET::Float, ET::Int, ET::String],
-            Operator::Minus | Operator::Slash | Operator::Star | 
-            Operator::Percent => &[ET::Int, ET::Float],
+            Operator::Equal | Operator::NotEqual => &[ET::Any],
+            _ => &[ET::Int, ET::Float],
         }
     }
 }

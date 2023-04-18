@@ -4,9 +4,9 @@ use crate::expr_type::ExprType;
 
 use super::error::RTError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum StackVal {
-    Int(i32), Float(f32), String(String),
+    Int(i32), Float(f32), String(String), Bool(bool),
 }
 
 impl StackVal {
@@ -15,6 +15,7 @@ impl StackVal {
             StackVal::Int(_) => ExprType::Int,
             StackVal::Float(_) => ExprType::Float,
             StackVal::String(_) => ExprType::String,
+            StackVal::Bool(_) => ExprType::Bool,
         }
     }
 }
@@ -48,39 +49,6 @@ impl Stack {
             None => Err(RTError::EmptyStack)
         }
     }
-
-    // pub fn pop_with_val<T>(&mut self) -> Result<T, RTError> 
-    // where 
-    //     StackVal: From<T>,
-    //     T: std::convert::TryFrom<super::stack::StackVal>
-    // {
-    //     match self.pop()? {
-    //         Some(val) => if let Ok(val) = val.clone().try_into() {
-    //             Some(val)
-    //         } else {
-    //             self.push_dir(val);
-    //             None
-    //         },
-    //         None => None,
-    //     }   
-    // }
-
-    // pub fn pop_with_val_twice<T>(&mut self,) -> Option<(T, T)> 
-    // where 
-    //     StackVal: From<T>,
-    //     T: std::convert::TryFrom<super::stack::StackVal>
-    // {
-    //     match self.pop_with_val::<T>() {
-    //         Some(val1) => match self.pop_with_val() {
-    //             Some(val2) => Some((val2, val1)),
-    //             None => {
-    //                 self.push(val1);
-    //                 None
-    //             }
-    //         },
-    //         None => None
-    //     }
-    // }
 }
 
 impl Default for Stack {
@@ -113,6 +81,7 @@ macro_rules! impl_from_for_stack_val {
 impl_from_for_stack_val!(i32, 0, Int);
 impl_from_for_stack_val!(f32, 0.0, Float);
 impl_from_for_stack_val!(String, "".to_string(), String);
+impl_from_for_stack_val!(bool, false, Bool);
 
 impl Add for StackVal {
     type Output = Result<StackVal, RTError>;

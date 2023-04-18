@@ -1,4 +1,4 @@
-use super::{bytecode::OpCode, stack::{Stack}, error::RTError};
+use super::{bytecode::OpCode, stack::{Stack, StackVal}, error::RTError};
 // use crate::binary_op;
 
 pub struct VM {
@@ -20,7 +20,9 @@ impl VM {
         while let Some(opcode) = code.get(at) {
             match opcode {
                 op @ (OpAdd | OpMultiply | OpDivide |
-                    OpModulo | OpSubtract) => self.bin_op(op)?,
+                    OpModulo | OpSubtract | OpGreater |
+                    OpSmaller | OpSmallerEqual | OpGreaterEqual | 
+                    OpEqual | OpNotEqual) => self.bin_op(op)?,
                 OpNegate => {
                     let a = self.stack.pop()?;
                     self.stack.push((-a)?);
@@ -28,6 +30,7 @@ impl VM {
                 OpNumber(n) => self.stack.push(*n),
                 OpFloat(f) => self.stack.push(*f),
                 OpString(s) => self.stack.push(s.to_string()),
+                OpBool(b) => self.stack.push(*b),
             }
             at += 1;
         }
@@ -44,6 +47,12 @@ impl VM {
             OpMultiply => (a * b)?,
             OpDivide => (a / b)?,
             OpModulo => (a % b)?,
+            OpEqual => StackVal::Bool(a == b),
+            OpNotEqual => StackVal::Bool(a != b),
+            OpGreater => StackVal::Bool(a > b),
+            OpGreaterEqual => StackVal::Bool(a >= b),
+            OpSmaller => StackVal::Bool(a < b),
+            OpSmallerEqual => StackVal::Bool(a <= b),
             _ => panic!()
         });
         Ok(())

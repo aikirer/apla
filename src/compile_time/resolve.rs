@@ -60,6 +60,7 @@ impl Resolve for Spanned<Expr> {
             Expr::Int(_) => Ok(ExprType::Int),
             Expr::Float(_) => Ok(ExprType::Float),
             Expr::String(_) => Ok(ExprType::String),
+            Expr::Bool(_) => Ok(ExprType::Bool),
             Expr::Ident(_) => todo!(),
             Expr::Binary { op, left, right } => {
                 let t1 = left.resolve()?;
