@@ -1,10 +1,12 @@
 use crate::spanned::Spanned;
 
 pub mod expr;
+pub mod stmt;
 
 #[derive(Debug)]
 pub enum AstNode {
-    Expr(Spanned<expr::Expr>)
+    Expr(Spanned<expr::Expr>),
+    Stmt(Spanned<stmt::Stmt>),
 }
 
 #[derive(Debug)]

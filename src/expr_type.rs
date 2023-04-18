@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-#[derive(Debug, PartialEq)]
+use crate::compile_time::error::CTError;
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum ExprType {
     Int, Float, String, Bool, ToBeInferred, Any,
 }
@@ -15,5 +17,18 @@ impl Display for ExprType {
             ExprType::ToBeInferred => "not inferred",
             ExprType::Any => "any",
         })
+    }
+}
+
+impl TryFrom<&str> for ExprType {
+    type Error = CTError;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "int" => Ok(Self::Int), 
+            "float" => Ok(Self::Float), 
+            "str" => Ok(Self::String),
+            "" => Ok(Self::ToBeInferred),
+            _ => Err(CTError::new(crate::compile_time::error::CTErrorKind::ExpectedType)),
+        }
     }
 }

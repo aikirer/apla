@@ -7,7 +7,7 @@ use super::{
     error::{CTError, CTErrorKind},
     ast::{
         expr::{Expr, Operator},
-        Ast, AstNode,
+        Ast, AstNode, stmt::Stmt,
     },
 };
 pub type SpanToken = Spanned<Token>;
@@ -38,15 +38,86 @@ impl<'a> Parser<'a> {
 
     pub fn parse(mut self) -> Option<(Ast, bool)> {
         self.ast.text = Some(self.txt.to_string());
-        let node = self.expr()?;
+        let node = self.stmt()?;
         self.ast.nodes.push(node);
         Some((self.ast, self.had_error))
     }
 
-    fn expr(&mut self) -> Option<AstNode> {
+    fn stmt(&mut self) -> Option<AstNode> {
+        match &**self.current {
+            Token::Mut | Token::Var => self.var_creation(),
+            _ => Some(AstNode::Expr(self.expr()?)),
+        }
+    }
+
+    fn var_creation(&mut self) -> Option<AstNode> {
+        let mut mutable = false;
+        let mut poisoned = false;
+        // if the mut keyword is absent, its ok
+        self.if_current_advance_and(&Token::Mut, || mutable = true);
+        match self.consume(&Token::Var) {
+            Ok(_) => (),
+            Err(er) => {
+                poisoned = true;
+                self.report_error(&er);
+            }
+        }
+        let (start, end) = (self.current.start, self.current.len);
+        let name = self.consume_ident().unwrap();
+        let name = Spanned::new(name.to_string(), start, end);
+        let ty = if &Token::Colon == &**self.current {
+            self.advance();
+            let (start, end) = (self.current.start, self.current.len);
+            let ty = self.consume_ident().unwrap();
+            Spanned::new(ty.to_string(), start, end)
+        } else { Spanned::new("".to_string(), 0, 0) };
+        self.consume(&Token::Equals).unwrap();
+        let expr = self.expr().unwrap();
+        self.consume(&Token::Semicolon).unwrap();
+        let mut span = Spanned::new(
+            Stmt::VarCreation { 
+                is_mut: mutable,
+                name, 
+                ty, 
+                value: expr,
+            }, 
+            start, self.current.start - start + self.current.len
+        );
+        if poisoned { span.poison(); }
+        Some(AstNode::Stmt(span))
+    }
+
+    fn _consume_string(&mut self) -> Result<&'a str, Spanned<CTError>> {
+        if let Token::Str(s) = &**self.current {
+            self.advance();
+            Ok(s)
+        } else {
+            // this is so hacky
+            Err(self.make_error(CTErrorKind::Expected(
+                    Token::Identifier("a string".to_string())
+            )))
+        }
+    }
+
+    fn consume_ident(&mut self) -> Result<&'a str, Spanned<CTError>> {
+        if let Token::Identifier(s) = &**self.current {
+            self.advance();
+            Ok(s)
+        } else {
+            // this is so hacky
+            Err(self.make_error(CTErrorKind::Expected(
+                    Token::Identifier("a string".to_string())
+            )))
+        }
+    }
+
+    fn expr(&mut self) -> Option<Spanned<Expr>> {
         let mut ast = Ast::new();
         self.parse_prec(PrecedenceLevel::Assignment, &mut ast);
-        ast.nodes.pop()
+        match ast.nodes.pop()? {
+            AstNode::Expr(e) => Some(e),
+            AstNode::Stmt(_) => panic!(),
+        }
     }
 
     fn parse_prec(&mut self, level: PrecedenceLevel, ast: &mut Ast) {
@@ -103,9 +174,11 @@ impl<'a> Parser<'a> {
         };
         let left = match left {
             AstNode::Expr(e) => e,
+            _ => panic!(),
         };
         let right = match right {
             AstNode::Expr(e) => e,
+            _ => panic!(),
         };
         let (start, end) = Spanned::get_start_and_len(&left, &right);
         let mut span = Spanned::new(
@@ -134,6 +207,7 @@ impl<'a> Parser<'a> {
         };
         let expr = match expr {
             AstNode::Expr(e) => e,
+            _ => panic!(),
         };
         let (start, size) = (token_start, 
             (self.previous.start - token_start) + self.previous.len);
@@ -166,15 +240,33 @@ impl<'a> Parser<'a> {
         self.advance(); // change to consume rparen
     }
 
-    fn consume(&mut self, token: &'a Token) -> Option<&'a Token> {
+    fn consume(
+        &mut self, token: &'a Token
+    ) -> Result<&'a Token, Spanned<CTError>> 
+    {
         if &**self.current == token {
             self.advance();
-            Some(token)
+            Ok(token)
+        } else { 
+            Err(self.make_error(CTErrorKind::Expected(token.clone()))) 
+        }
+    }
+
+    fn if_current_advance_and<T, F: FnOnce() -> T>(
+        &mut self, token: &'a Token, clos: F
+    ) -> Option<T>
+    {
+        if token == &**self.current {
+            self.advance();
+            Some(clos())
         } else { None }
     }
 
-    fn consume_one_of(&mut self, tokens: &'a [Token]) -> Option<&'a Token> {
-        tokens.iter().find(|t| self.consume(t).is_some())
+    fn consume_one_of(
+        &mut self, tokens: &'a [Token]
+    ) -> Option<&'a Token> 
+    {
+        tokens.iter().find(|t| self.consume(t).is_ok())
     }
 
     fn advance(&mut self) -> Option<&'a Token> {

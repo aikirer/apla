@@ -1,4 +1,4 @@
-use super::ast::{AstNode, expr::{Expr, Operator}, Ast};
+use super::ast::{AstNode, expr::{Expr, Operator}, Ast, stmt::Stmt};
 
 pub trait Optimize {
     fn optimize(&mut self)
@@ -18,6 +18,7 @@ impl Optimize for AstNode {
     fn optimize(&mut self) {
         match self {
             AstNode::Expr(e) => e.optimize(),
+            AstNode::Stmt(e) => e.optimize(),
         }
     }
 }
@@ -95,5 +96,15 @@ impl Optimize for Expr {
             }
             _ => (),
         };
+    }
+}
+
+impl Optimize for Stmt {
+    fn optimize(&mut self) {
+        match self {
+            Stmt::VarCreation { is_mut: _, name: _, ty: _, value } => {
+                value.optimize();
+            },
+        }
     }
 }

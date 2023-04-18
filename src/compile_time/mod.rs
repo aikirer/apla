@@ -5,3 +5,5 @@ pub mod ast_compiler;
 pub mod optimize;
 pub mod resolve;
 pub mod ast;
+pub mod util;
+pub mod resolver;

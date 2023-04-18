@@ -31,6 +31,7 @@ impl Compile for AstNode {
     fn compile(&self) -> compile::Output {
         match self {
             AstNode::Expr(e) => e.compile(),
+            AstNode::Stmt(_e) => todo!(),
         }
     }
 }

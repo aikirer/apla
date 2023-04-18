@@ -8,12 +8,15 @@ use super::ast::expr::Operator;
 pub enum CTErrorKind {
     Expected(Token),
     ExpectedButFound(Token, Token),
+    ExpectedType,
     Unexpected(Token),
     MismatchedTypes(ExprType, ExprType),
     CantUseOpForTypes(Operator, ExprType),
     CantNegateType(ExprType),
     ExpectedOperator,
     HadError,
+
+    Poisoned,
 }
 
 #[derive(Debug)]
@@ -45,6 +48,8 @@ impl Display for CTErrorKind {
                 format!("Expected '{t}', found '{t2}'!"),
             Self::Unexpected(t) => 
                 format!("Unexpected '{t}'!"),
+            Self::ExpectedType => 
+                format!("Expected a type!"),
             Self::CantUseOpForTypes(op, t) => 
                 format!("Cannot use the operator '{}' for '{t}'!", op.to_string()),
             Self::MismatchedTypes(t1, t2) => 
@@ -54,6 +59,7 @@ impl Display for CTErrorKind {
             Self::ExpectedOperator => 
                 format!("Expected an operator here!"),
             Self::HadError => "Had an error!".to_string(), // tmp
+            Self::Poisoned => "poisoned".to_string(),
         })
     }
 }
@@ -79,6 +85,9 @@ pub fn report_error(error: &Spanned<CTError>, text: &str) {
             return;
         }
     };
+    let prev_len = line.len();
+    let line = line.trim_start();
+    let at_char = at_char - (prev_len - (line.len() - 1)) + 1;
     print!(" | {line}\n | ");
     for _ in 0..at_char {
         print!(" ");

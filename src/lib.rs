@@ -3,7 +3,7 @@ use scanner::Scanner;
 
 use crate::{
     compile_time::{parser::Parser, 
-        ast_compiler::Compiler, optimize::Optimize, resolve::Resolve}, 
+        ast_compiler::Compiler, optimize::Optimize, resolver::Resolver}, 
     run_time::vm::VM
 };
 
@@ -31,7 +31,8 @@ pub fn compile(input: &str) -> Result<Vec<OpCode>, ()> {
         return Err(())
     } 
     crate::measure_time!(ast.optimize(), "optimizing");
-    crate::measure_time!(match ast.resolve() {
+    let mut resolver = Resolver::new(&ast, input);
+    crate::measure_time!(match resolver.resolve() {
         Ok(()) => (),
         Err(_) => {
             return Err(())
