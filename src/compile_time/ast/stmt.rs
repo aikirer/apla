@@ -8,6 +8,8 @@ pub enum Stmt {
         is_mut: bool,
         name: Spanned<String>,
         ty: Spanned<String>,
-        value: Spanned<Expr>,
-    }
+        value: Option<Spanned<Expr>>,
+    },
+
+    Poison
 }

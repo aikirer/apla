@@ -40,7 +40,9 @@ pub enum Expr {
     },
     Unary {
         expr: Box<Spanned<Expr>>
-    }
+    },
+
+    Poison
 }
 
 impl Operator {

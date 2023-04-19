@@ -19,13 +19,7 @@ pub fn compile(input: &str) -> Result<Vec<OpCode>, ()> {
     let tokens = crate::measure_time!(scanner.scan(), "scanning");
     println!("result: {tokens:?}");
     let parser = Parser::new(tokens, &input);
-    let (mut ast, had_error) = crate::measure_time!(match parser.parse() {
-        Some(ast) => ast,
-        None => {
-            eprintln!("Cannot compile an empty program!");
-            return Ok(vec![]);
-        }
-    }, "parsing");
+    let (mut ast, had_error) = crate::measure_time!(parser.parse(), "parsing");
     println!("ast: {ast:?}");
     if had_error {
         return Err(())

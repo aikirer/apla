@@ -4,7 +4,7 @@ use crate::compile_time::error::CTError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprType {
-    Int, Float, String, Bool, ToBeInferred, Any,
+    Int, Float, String, Bool, ToBeInferred, Any
 }
 
 impl Display for ExprType {
@@ -27,7 +27,7 @@ impl TryFrom<&str> for ExprType {
             "int" => Ok(Self::Int), 
             "float" => Ok(Self::Float), 
             "str" => Ok(Self::String),
-            "" => Ok(Self::ToBeInferred),
+            "_" => Ok(Self::ToBeInferred),
             _ => Err(CTError::new(crate::compile_time::error::CTErrorKind::ExpectedType)),
         }
     }

@@ -77,6 +77,9 @@ impl<'a> Resolver<'a> {
                         expr.start, expr.len)),
                 }
             },
+            Expr::Poison => Err(Spanned::new(
+                CTError::new(CTErrorKind::Poisoned), 0, 0
+            )),
         }
     }
 
@@ -84,38 +87,61 @@ impl<'a> Resolver<'a> {
         match &**stmt {
             Stmt::VarCreation { is_mut, name, ty, value } => {
                 let mut poisoned = false;
-                let ty = match ExprType::try_from(&ty as &str) {
-                    Ok(mut t) => {
-                        match self.resolve_expr(&value) {
-                            Ok(t2) => {
-                                if t == ExprType::ToBeInferred {
-                                    t = t2;
-                                } else if &t != &t2 {
-                                    poisoned = true;
-                                    self.report_error(&Spanned::new(CTError::new(
-                                        CTErrorKind::MismatchedTypes(t.clone(), t2)), 
-                                        value.start, value.len
-                                    ));
-                                }
-                                
-                            },
-                            Err(er) =>{
-                                self.report_error(&er);
-                                poisoned = true;
+                let init = value.is_some();
+                let var_type;
+                if value.is_none() {
+                    match ExprType::try_from(&ty as &str) {
+                        Ok(t) => {
+                            if t == ExprType::ToBeInferred {
+                                self.report_error(&Spanned::new(CTError::new(
+                                    CTErrorKind::CantInferType), 
+                                    stmt.start, stmt.len
+                                ))
                             }
-                        }
-                        t
-                    },
-                    Err(er) => {
-                        self.report_error(&Spanned::new(er, ty.start, ty.len));
-                        poisoned = true;
-                        ExprType::Int
-                    },
-                };
-                let mut var = Variable::new(ty, *is_mut);
+                            var_type = t;
+                        },
+                        Err(er) => {
+                            self.report_error(&Spanned::new(er, stmt.start, stmt.len));
+                            poisoned = true;
+                            var_type = ExprType::ToBeInferred;
+                        },
+                    }
+                } else {
+                    let value = value.as_ref().unwrap();
+                    match ExprType::try_from(&ty as &str) {
+                        Ok(mut t) => {
+                            match self.resolve_expr(&value) {
+                                Ok(t2) => {
+                                    if t == ExprType::ToBeInferred {
+                                        t = t2;
+                                    } else if &t != &t2 {
+                                        poisoned = true;
+                                        self.report_error(&Spanned::new(CTError::new(
+                                            CTErrorKind::MismatchedTypes(t.clone(), t2)), 
+                                            value.start, value.len
+                                        ));
+                                    }
+                                    
+                                },
+                                Err(er) =>{
+                                    self.report_error(&er);
+                                    poisoned = true;
+                                }
+                            }
+                            var_type = t
+                        },
+                        Err(er) => {
+                            self.report_error(&Spanned::new(er, ty.start, ty.len));
+                            poisoned = true;
+                            var_type = ExprType::Int
+                        },
+                    };
+                }   
+                let mut var = Variable::new(var_type, *is_mut, init);
                 if poisoned { var.poison() }
                 self.scope.add_var(name, var);
             },
+            Stmt::Poison => (),
         }  
     }
 

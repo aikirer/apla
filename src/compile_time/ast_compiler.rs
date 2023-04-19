@@ -55,6 +55,7 @@ impl Compile for Expr {
                 out.extend(expr.compile());
                 self.add(&mut out, OpCode::OpNegate);
             },
+            Self::Poison => panic!(),
         }
         out
     }

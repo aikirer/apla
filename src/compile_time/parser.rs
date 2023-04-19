@@ -36,24 +36,31 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> Option<(Ast, bool)> {
+    pub fn parse(mut self) -> (Ast, bool) {
         self.ast.text = Some(self.txt.to_string());
-        let node = self.stmt()?;
+        let node = self.stmt();
         self.ast.nodes.push(node);
-        Some((self.ast, self.had_error))
+        (self.ast, self.had_error)
     }
 
-    fn stmt(&mut self) -> Option<AstNode> {
+    fn stmt(&mut self) -> AstNode {
         match &**self.current {
             Token::Mut | Token::Var => self.var_creation(),
-            _ => Some(AstNode::Expr(self.expr()?)),
+            t @ _ => AstNode::Expr(self.expr().unwrap_or_else(|| {
+                self.report_error(
+                &self.make_error(CTErrorKind::Unexpected(t.clone())),
+                
+                );
+                Spanned::new(Expr::Poison, 0, 0)
+            }
+            )),
         }
     }
 
-    fn var_creation(&mut self) -> Option<AstNode> {
+    fn var_creation(&mut self) -> AstNode {
+        let (start, end) = (self.current.start, self.current.len);
         let mut mutable = false;
         let mut poisoned = false;
-        // if the mut keyword is absent, its ok
         self.if_current_advance_and(&Token::Mut, || mutable = true);
         match self.consume(&Token::Var) {
             Ok(_) => (),
@@ -62,18 +69,30 @@ impl<'a> Parser<'a> {
                 self.report_error(&er);
             }
         }
-        let (start, end) = (self.current.start, self.current.len);
-        let name = self.consume_ident().unwrap();
+        let name = match self.consume_ident() {
+            Ok(n) => n,
+            Err(er) => {
+                self.report_error(&er);
+                return AstNode::Stmt(Spanned::new(Stmt::Poison, 0, 0));
+            }
+        };
         let name = Spanned::new(name.to_string(), start, end);
         let ty = if &Token::Colon == &**self.current {
             self.advance();
             let (start, end) = (self.current.start, self.current.len);
             let ty = self.consume_ident().unwrap();
             Spanned::new(ty.to_string(), start, end)
-        } else { Spanned::new("".to_string(), 0, 0) };
-        self.consume(&Token::Equals).unwrap();
-        let expr = self.expr().unwrap();
-        self.consume(&Token::Semicolon).unwrap();
+        } else { Spanned::new("_".to_string(), 0, 0) };
+        let expr = match self.consume(&Token::Equals) {
+            Ok(_) => {
+                Some(self.expr().unwrap())
+            },
+            Err(_) => None
+        };
+        if let Err(er) = self.consume(&Token::Semicolon) {
+            self.advance();
+            self.report_error(&er);
+        };
         let mut span = Spanned::new(
             Stmt::VarCreation { 
                 is_mut: mutable,
@@ -81,10 +100,10 @@ impl<'a> Parser<'a> {
                 ty, 
                 value: expr,
             }, 
-            start, self.current.start - start + self.current.len
+            start, self.previous.start - start + self.previous.len
         );
         if poisoned { span.poison(); }
-        Some(AstNode::Stmt(span))
+        AstNode::Stmt(span)
     }
 
     fn _consume_string(&mut self) -> Result<&'a str, Spanned<CTError>> {
@@ -92,10 +111,7 @@ impl<'a> Parser<'a> {
             self.advance();
             Ok(s)
         } else {
-            // this is so hacky
-            Err(self.make_error(CTErrorKind::Expected(
-                    Token::Identifier("a string".to_string())
-            )))
+            Err(self.make_error(CTErrorKind::ExpectedStr))
         }
     }
 
@@ -104,10 +120,7 @@ impl<'a> Parser<'a> {
             self.advance();
             Ok(s)
         } else {
-            // this is so hacky
-            Err(self.make_error(CTErrorKind::Expected(
-                    Token::Identifier("a string".to_string())
-            )))
+            Err(self.make_error(CTErrorKind::ExpectedIdent))
         }
     }
 

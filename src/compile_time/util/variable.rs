@@ -5,12 +5,13 @@ pub struct Variable {
     ty: ExprType,
     is_mut: bool,
     poisoned: bool,
+    initialized: bool,
 }
 
 impl Variable {
-    pub fn new(ty: ExprType, is_mut: bool) -> Self {
+    pub fn new(ty: ExprType, is_mut: bool, initialized: bool) -> Self {
         Self {
-            ty, is_mut, 
+            ty, is_mut, initialized,
             poisoned: false,
         }
     }

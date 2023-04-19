@@ -15,6 +15,9 @@ pub enum CTErrorKind {
     CantNegateType(ExprType),
     ExpectedOperator,
     HadError,
+    ExpectedIdent,
+    ExpectedStr,
+    CantInferType,
 
     Poisoned,
 }
@@ -59,6 +62,9 @@ impl Display for CTErrorKind {
             Self::ExpectedOperator => 
                 format!("Expected an operator here!"),
             Self::HadError => "Had an error!".to_string(), // tmp
+            Self::ExpectedIdent => "Expected an identifier!".to_string(),
+            Self::ExpectedStr => "Expected a string!".to_string(),
+            Self::CantInferType => "Cannot infer the type!".to_string(),
             Self::Poisoned => "poisoned".to_string(),
         })
     }
@@ -81,13 +87,13 @@ pub fn report_error(error: &Spanned<CTError>, text: &str) {
     let line = match line {
         Some(l) => l,
         None => {
-            eprintln!(" | couldn't find the error in code!");
+            eprintln!(" | couldn't find the error in code! (is it at the end of the file?)");
             return;
         }
     };
-    let prev_len = line.len();
+    let prev_len = line.len() - 1;
     let line = line.trim_start();
-    let at_char = at_char - (prev_len - (line.len() - 1)) + 1;
+    let at_char = at_char - (prev_len - (line.len() - 1));
     print!(" | {line}\n | ");
     for _ in 0..at_char {
         print!(" ");

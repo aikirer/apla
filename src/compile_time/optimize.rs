@@ -103,8 +103,11 @@ impl Optimize for Stmt {
     fn optimize(&mut self) {
         match self {
             Stmt::VarCreation { is_mut: _, name: _, ty: _, value } => {
-                value.optimize();
+                if let Some(expr) = value {
+                    expr.optimize();
+                }
             },
+            Self::Poison => (),
         }
     }
 }
