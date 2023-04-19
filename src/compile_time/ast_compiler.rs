@@ -1,4 +1,5 @@
 use crate::run_time::bytecode::OpCode;
+use super::ast::stmt::Stmt;
 use super::ast::{Ast, expr::Expr, AstNode};
 
 use super::compile::{self, Compile};
@@ -31,7 +32,7 @@ impl Compile for AstNode {
     fn compile(&self) -> compile::Output {
         match self {
             AstNode::Expr(e) => e.compile(),
-            AstNode::Stmt(_e) => todo!(),
+            AstNode::Stmt(e) => e.compile(),
         }
     }
 }
@@ -56,6 +57,25 @@ impl Compile for Expr {
                 self.add(&mut out, OpCode::OpNegate);
             },
             Self::Poison => panic!(),
+        }
+        out
+    }
+}
+
+impl Compile for Stmt {
+    fn compile(&self) -> compile::Output {
+        let mut out = vec![];
+        match self {
+            Stmt::VarCreation { is_mut: _, name, ty: _, value } => {
+                self.add(&mut out, OpCreateVar(name.to_string()));
+                if let Some(val) = value {
+                    out.extend(val.compile());
+                    // place expression
+                    self.add(&mut out, OpGetVar(name.to_string()));
+                    self.add(&mut out, OpSet);
+                }
+            },
+            Stmt::Poison => panic!(),
         }
         out
     }

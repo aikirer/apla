@@ -5,7 +5,9 @@ use crate::expr_type::ExprType;
 #[derive(Debug)]
 pub enum RTError {
     WrongType(ExprType), EmptyStack,
-    MismatchedTypes(ExprType, ExprType)
+    MismatchedTypes(ExprType, ExprType),
+    VarDoesntExist(String),
+    ExpectedPlace,
 }
 
 impl Error for RTError {}
@@ -18,6 +20,10 @@ impl Display for RTError {
             RTError::MismatchedTypes(expected, found) => 
                 format!("expected '{expected}', found '{found}'!"),
             Self::EmptyStack => "The stack was empty!".to_string(),
+            Self::VarDoesntExist(n) => 
+                format!("Variable {n} doesn't exist!"),
+            Self::ExpectedPlace => 
+                format!("Expected a place expression!"),
         };
         write!(f, "{t}")
     }

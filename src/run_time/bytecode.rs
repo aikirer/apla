@@ -4,5 +4,8 @@ pub enum OpCode {
     OpNegate, OpSmaller, OpGreater, OpSmallerEqual, OpGreaterEqual,
     OpEqual, OpNotEqual,
 
+    OpCreateVar(String), OpGetVar(String),
+    OpSet,
+
     OpNumber(i32), OpFloat(f32), OpString(String), OpBool(bool),
 }

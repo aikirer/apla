@@ -1,8 +1,10 @@
-use super::{bytecode::OpCode, stack::{Stack, StackVal}, error::RTError};
+use super::{bytecode::OpCode, stack::{Stack, StackVal}, error::RTError, scope::Scope};
 // use crate::binary_op;
 
+#[derive(Debug)]
 pub struct VM {
-    stack: Stack
+    stack: Stack,
+    scope: Scope,
 }
 
 // prefixed with Op
@@ -11,7 +13,8 @@ use OpCode::*;
 impl VM {
     pub fn new() -> Self {
         Self {
-            stack: Stack::new()
+            stack: Stack::new(),
+            scope: Scope::new(),
         }
     }
 
@@ -31,10 +34,21 @@ impl VM {
                 OpFloat(f) => self.stack.push(*f),
                 OpString(s) => self.stack.push(s.to_string()),
                 OpBool(b) => self.stack.push(*b),
+
+                OpGetVar(n) => self.stack.push(self.scope.get_var(n)?),
+                OpSet => {
+                    println!("stack: {:?}", self.stack);
+                    let a = self.stack.pop_place()?;
+                    println!("a : {a:?}",);
+                    let b = self.stack.pop()?;
+                    println!("b: {b:?}");
+                    a.replace(b);
+                },
+                OpCreateVar(n) => self.scope.add_var(n, StackVal::Null),
             }
             at += 1;
         }
-        println!("{:?}", self.stack.pop());
+        println!("{:?}\n{:?}", self.scope, self.stack.pop());
         Ok(())
     }
 
