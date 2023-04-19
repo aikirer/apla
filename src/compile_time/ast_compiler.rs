@@ -46,7 +46,9 @@ impl Compile for Expr {
             Expr::Float(f) => self.add(&mut out, OpFloat(*f)),
             Expr::String(s) => self.add(&mut out, OpString(s.to_string())),
             Expr::Bool(b) => self.add(&mut out, OpBool(*b)),
-            Expr::Ident(_) => todo!(),
+            Expr::Var(name) => {
+                self.add(&mut out, OpGetVar(name.to_string()))
+            }
             Expr::Binary { op, left, right } => {
                 out.extend(left.compile());
                 out.extend(right.compile());

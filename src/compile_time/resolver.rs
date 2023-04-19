@@ -22,7 +22,6 @@ impl<'a> Resolver<'a> {
 
     pub fn resolve(&mut self) -> Result<(), ()> {
         for node in &self.ast.nodes {
-            println!("ASD");
             match node {
                 AstNode::Expr(e) => {
                     if let Err(er) = self.resolve_expr(&e) {
@@ -47,7 +46,22 @@ impl<'a> Resolver<'a> {
             Expr::Float(_) => Ok(ExprType::Float),
             Expr::String(_) => Ok(ExprType::String),
             Expr::Bool(_) => Ok(ExprType::Bool),
-            Expr::Ident(_) => todo!(),
+            Expr::Var(n) => {
+                let var = match self.scope.get_var(n) {
+                    Ok(var) => var,
+                    Err(kind) => {
+                        return Err(make_error(kind, expr.start, expr.len))
+                    }
+                };
+                if !var.initialized {
+                    return Err(
+                        make_error(
+                            CTErrorKind::UninitVarUsed(n.to_string()), 
+                            expr.start, expr.len
+                    ));
+                }
+                Ok(var.ty.clone())
+            },
             Expr::Binary { op, left, right } => {
                 let t1 = self.resolve_expr(&left)?;
                 let t2 = self.resolve_expr(&right)?;

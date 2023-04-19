@@ -2,10 +2,10 @@ use crate::expr_type::ExprType;
 
 #[derive(Debug)]
 pub struct Variable {
-    ty: ExprType,
-    is_mut: bool,
-    poisoned: bool,
-    initialized: bool,
+    pub ty: ExprType,
+    pub is_mut: bool,
+    pub poisoned: bool,
+    pub initialized: bool,
 }
 
 impl Variable {

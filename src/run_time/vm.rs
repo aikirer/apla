@@ -37,11 +37,8 @@ impl VM {
 
                 OpGetVar(n) => self.stack.push(self.scope.get_var(n)?),
                 OpSet => {
-                    println!("stack: {:?}", self.stack);
                     let a = self.stack.pop_place()?;
-                    println!("a : {a:?}",);
                     let b = self.stack.pop()?;
-                    println!("b: {b:?}");
                     a.replace(b);
                 },
                 OpCreateVar(n) => self.scope.add_var(n, StackVal::Null),

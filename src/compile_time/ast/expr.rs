@@ -30,9 +30,9 @@ impl Display for Operator {
 pub enum Expr {
     Int(i32), 
     Float(f32), 
-    String(String), 
-    Ident(String),
+    String(String),
     Bool(bool),
+    Var(String),
     Binary {
         op: Operator,
         left: Box<Spanned<Expr>>,
@@ -115,7 +115,6 @@ impl Expr {
             Token::Str(s) => Some(Expr::String(s.to_string())),
             Token::Float(f) => Some(Expr::Float(*f)),
             Token::Number(i) => Some(Expr::Int(*i)),
-            Token::Identifier(s) => Some(Expr::Ident(s.to_string())),
             _ => None,
         }
     }

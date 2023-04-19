@@ -47,7 +47,6 @@ impl Stack {
         StackVal: From<T>,
         T: std::fmt::Debug
     {
-        println!("pushing {val:?}");
         self.values.push(StackVal::from(val));
     }
 
@@ -70,7 +69,6 @@ impl Stack {
     }
 
     pub fn pop_place(&mut self) -> Result<Rc<RefCell<StackVal>>, RTError> {
-        println!("{:?}", self.values);
         match self.normal_pop()? {
             StackVal::Var(v) => Ok(v),
             _ => Err(RTError::ExpectedPlace)

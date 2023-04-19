@@ -118,7 +118,7 @@ pub enum PrecedenceLevel {
 
 #[derive(Debug)]
 pub enum ExprRole {
-    Number, String, Grouping, Bool, Float, 
+    Literal, Grouping, Bool, Float, 
     Binary, None, Unary, Object, 
 }
 
@@ -150,8 +150,8 @@ impl Token {
             Minus => (Lvl::Term, Role::Unary, Role::Binary),
             Percent | Slash | Star => (Lvl::Factor, Role::None, Role::Binary),
             Bang => (Lvl::Factor, Role::Unary, Role::None),
-            Str(_) => (Lvl::Factor, Role::String, Role::None),
-            Float(_) | Number(_) => (Lvl::Factor, Role::Number, Role::None),
+            Str(_) => (Lvl::Factor, Role::Literal, Role::None),
+            Float(_) | Number(_) => (Lvl::Factor, Role::Literal, Role::None),
             Identifier(_) => (Lvl::Factor, Role::Object, Role::None),
             Bool(_) => (Lvl::Factor, Role::Bool, Role::None),
             Greater | Smaller | GreaterEqual | SmallerEqual |

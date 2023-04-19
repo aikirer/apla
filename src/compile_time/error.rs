@@ -13,6 +13,8 @@ pub enum CTErrorKind {
     MismatchedTypes(ExprType, ExprType),
     CantUseOpForTypes(Operator, ExprType),
     CantNegateType(ExprType),
+    VarDoesntExist(String),
+    UninitVarUsed(String),
     ExpectedOperator,
     HadError,
     ExpectedIdent,
@@ -61,6 +63,10 @@ impl Display for CTErrorKind {
                 format!("Type '{t}' cannot be negated!"),
             Self::ExpectedOperator => 
                 format!("Expected an operator here!"),
+            Self::VarDoesntExist(n) => 
+                format!("Var '{n}' doesn't exist!"),
+            Self::UninitVarUsed(n) => 
+                format!("var '{n}' cannot be used when uninitialized!"),
             Self::HadError => "Had an error!".to_string(), // tmp
             Self::ExpectedIdent => "Expected an identifier!".to_string(),
             Self::ExpectedStr => "Expected a string!".to_string(),

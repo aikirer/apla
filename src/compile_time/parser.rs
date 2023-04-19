@@ -38,9 +38,18 @@ impl<'a> Parser<'a> {
 
     pub fn parse(mut self) -> (Ast, bool) {
         self.ast.text = Some(self.txt.to_string());
-        let node = self.stmt();
-        self.ast.nodes.push(node);
+        let block = self.stmt_block();
+        self.ast.nodes.extend(block);
         (self.ast, self.had_error)
+    }
+
+    fn stmt_block(&mut self) -> Vec<AstNode> {
+        let mut result = vec![];
+        // TODO: blocks also end at }
+        while !self.is_at_end() {
+            result.push(self.stmt());
+        }
+        result
     }
 
     fn stmt(&mut self) -> AstNode {
@@ -152,9 +161,8 @@ impl<'a> Parser<'a> {
             ExprRole::Binary => self.binary(ast),
             ExprRole::None => return None,
             ExprRole::Unary => self.unary(ast),
-            ExprRole::Object => todo!(),
-            ExprRole::Number => self.number(ast),
-            ExprRole::String => self.string(ast),
+            ExprRole::Object => self.object(ast),
+            ExprRole::Literal => self.literal(ast),
             ExprRole::Grouping => self.grouping(ast),
             ExprRole::Bool => todo!(),
             ExprRole::Float => todo!(),
@@ -229,16 +237,25 @@ impl<'a> Parser<'a> {
         }, start, size)));
     }
 
-    fn number(&mut self, ast: &mut Ast) {
-        self.advance();
-        let (start, end) = (self.previous.start, self.previous.len);
-        ast.nodes.push(AstNode::Expr(Spanned::new(
-            Expr::try_from_token(self.previous).unwrap(),
-            start, end)
-        ));
+    fn object(&mut self, ast: &mut Ast) {
+        let (start, end) = (self.current.start, self.current.len);        
+        match self.consume_ident() {
+            Ok(ident) => {
+                ast.nodes.push(AstNode::Expr(Spanned::new(
+                    Expr::Var(ident.to_string()), start, end)
+                ));
+            },
+            Err(er) => {
+                self.advance();
+                self.report_error(&er);
+                ast.nodes.push(AstNode::Expr(Spanned::new(
+                    Expr::Poison, start, end,
+                )))
+            }
+        };
     }
 
-    fn string(&mut self, ast: &mut Ast) {
+    fn literal(&mut self, ast: &mut Ast) {
         self.advance();
         let (start, end) = (self.previous.start, self.previous.len);
         ast.nodes.push(AstNode::Expr(Spanned::new(
@@ -300,5 +317,9 @@ impl<'a> Parser<'a> {
     fn report_error(&mut self, error: &Spanned<CTError>) {
         self.had_error = true;
         super::error::report_error(error, self.txt);
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.current.obj_ref() == &Token::Eof
     }
 }
