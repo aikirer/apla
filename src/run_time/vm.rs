@@ -42,6 +42,8 @@ impl VM {
                     a.replace(b);
                 },
                 OpCreateVar(n) => self.scope.add_var(n, StackVal::Null),
+                OpPushScope => self.scope.push_scope(),
+                OpPopScope => self.scope.pop_scope(),
             }
             at += 1;
         }

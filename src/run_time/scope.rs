@@ -36,6 +36,14 @@ impl Scope {
                 }
     }
 
+    pub fn push_scope(&mut self) {
+        self.objects.push(HashMap::new());
+    }
+
+    pub fn pop_scope(&mut self) {
+        self.objects.pop();
+    }
+
     fn get_current_scope(&mut self) -> &mut SingleScope {
         self.objects.last_mut().unwrap()
     }

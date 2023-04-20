@@ -4,7 +4,7 @@ use crate::{token::Token, expr_type::ExprType, spanned::Spanned};
 
 use super::ast::expr::Operator;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum CTErrorKind {
     Expected(Token),
     ExpectedButFound(Token, Token),

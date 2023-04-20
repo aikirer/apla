@@ -1,6 +1,6 @@
 use crate::{spanned::Spanned};
 
-use super::expr::Expr;
+use super::{expr::Expr, AstNode};
 
 #[derive(Debug)]
 pub enum Stmt {
@@ -13,6 +13,9 @@ pub enum Stmt {
     Assignment {
         left: Box<Spanned<Expr>>,
         right: Box<Spanned<Expr>>,
+    },
+    Block {
+        nodes: Vec<AstNode>
     },
 
     Poison

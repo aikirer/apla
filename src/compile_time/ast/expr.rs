@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{token::{Token, PrecedenceLevel}, run_time::bytecode::OpCode, expr_type::ExprType, spanned::Spanned};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Operator {
     Plus, Minus, Slash, Star, Percent, Smaller, SmallerEqual,
     Greater, GreaterEqual, Equal, NotEqual

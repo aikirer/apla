@@ -1,2 +1,7 @@
-var x: int = 12;
-var y = x * 12;
+var x = "asd";
+var y: int;
+{
+    var x = 2;
+    y = x - 2;
+}
+var z = y + 5;

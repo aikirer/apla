@@ -32,8 +32,7 @@ impl Scope {
         &self, name: &str
     ) -> Result<&Variable, CTErrorKind> 
     {
-        match self.scopes.iter()
-            .rev()
+        match self.scopes.iter().rev()
             .find_map(|v| { v.objects.iter()
                 .find(|(var_name, _)| &**var_name == name) })
                 .map(|(_, val)| val) {
@@ -46,14 +45,21 @@ impl Scope {
         &mut self, name: &str
     ) -> Result<&mut Variable, CTErrorKind> 
     {
-        match self.scopes.iter_mut()
-            .rev()
+        match self.scopes.iter_mut().rev()
             .find_map(|v| { v.objects.iter_mut()
                 .find(|(var_name, _)| &**var_name == name) })
                 .map(|(_, val)| val) {
                     Some(val) => Ok(val),
                     None => Err(CTErrorKind::VarDoesntExist(name.to_string())),
                 }
+    }
+
+    pub fn add_scope(&mut self) {
+        self.scopes.push(SingleScope::new());
+    }
+
+    pub fn pop_scope(&mut self) -> SingleScope {
+        self.scopes.pop().unwrap() 
     }
 }
 

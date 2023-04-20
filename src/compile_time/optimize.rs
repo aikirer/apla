@@ -110,6 +110,11 @@ impl Optimize for Stmt {
             Stmt::Assignment { left, right } => {
                 left.optimize();
                 right.optimize();
+            },
+            Stmt::Block { nodes } => {
+                for node in nodes {
+                    node.optimize();
+                }
             }
             Self::Poison => (),
         }

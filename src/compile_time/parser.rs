@@ -45,27 +45,41 @@ impl<'a> Parser<'a> {
 
     fn stmt_block(&mut self) -> Vec<AstNode> {
         let mut result = vec![];
-        // TODO: blocks also end at }
         while !self.is_at_end() {
-            result.push(self.stmt());
+            let node = match self.stmt() {
+                Ok(node) => node,
+                Err((er, node)) => {
+                    if er.kind == CTErrorKind::Unexpected(Token::RightBrace) {
+                        self.advance();
+                        break;
+                    }
+                    node
+                }
+            };
+            result.push(node);
         }
         result
     }
 
-    fn stmt(&mut self) -> AstNode {
+    fn stmt(&mut self) -> Result<AstNode, (CTError, AstNode)> {
         match &**self.current {
-            Token::Mut | Token::Var => self.var_creation(),
+            Token::Mut | Token::Var => Ok(self.var_creation()),
+            Token::LeftBrace => Ok(self.block()),
             t @ _ => {
-                let expr = self.expr().unwrap_or_else(|| {
-                    self.report_error(&self.make_error(
-                        CTErrorKind::Unexpected(t.clone())),
-                    );
-                    Spanned::new(Expr::Poison, 0, 0)
-                });
+                let expr = match self.expr() {
+                    Some(v) => v,
+                    None => {
+                        return Err((
+                            CTError::new(
+                                CTErrorKind::Unexpected(t.clone())),
+                            AstNode::Expr(Spanned::new(Expr::Poison, 0, 0))
+                        ))
+                    }
+                };
                 if self.current.obj_ref() == &Token::Equals {
-                    AstNode::Stmt(self.assignment(expr))
+                    Ok(AstNode::Stmt(self.assignment(expr)))
                 } else {
-                    AstNode::Expr(expr)
+                    Ok(AstNode::Expr(expr))
                 }
             }
         }
@@ -120,6 +134,18 @@ impl<'a> Parser<'a> {
         AstNode::Stmt(span)
     }
 
+    fn block(&mut self) -> AstNode {
+        if let Err(er) = self.consume(&Token::LeftBrace) {
+            self.report_error(&er);
+        }
+        let start = self.current.start;
+        let nodes = self.stmt_block();
+        dbg!(AstNode::Stmt(Spanned::new(
+            Stmt::Block { nodes }, start, 
+            self.current.start - start + self.current.len
+        )))
+    }
+    
     fn assignment(&mut self, left: Spanned<Expr>) -> Spanned<Stmt> {
         if let Err(er) = self.consume(&Token::Equals) {
             self.report_error(&er);

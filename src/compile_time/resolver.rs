@@ -32,21 +32,25 @@ impl<'a> Resolver<'a> {
 
     pub fn resolve(&mut self) -> Result<(), ()> {
         for node in &self.ast.nodes {
-            match node {
-                AstNode::Expr(e) => {
-                    if let Err(er) = self.resolve_expr(&e) {
-                        self.report_error(&er);
-                    };
-                    ()
-                },
-                AstNode::Stmt(s) => {self.resolve_stmt(&s);()},
-            };
+            self.resolve_node(node);
         }
         println!("VARIABLES: {:?}", self.scope);
         match self.had_error {
             true => Err(()),
             false => Ok(()),
         }
+    }
+
+    fn resolve_node(&mut self, node: &AstNode) {
+        match node {
+            AstNode::Expr(e) => {
+                if let Err(er) = self.resolve_expr(&e) {
+                    self.report_error(&er);
+                };
+                ()
+            },
+            AstNode::Stmt(s) => {self.resolve_stmt(&s);()},
+        };
     }
 
     fn resolve_expr(&self, expr: &Spanned<Expr>) -> Result<ExprType, Spanned<CTError>> {
@@ -180,6 +184,13 @@ impl<'a> Resolver<'a> {
                         _ => self.report_error(&er),
                     }
                 }
+            },
+            Stmt::Block { nodes } => {
+                self.scope.add_scope();
+                for node in nodes {
+                    self.resolve_node(&node);
+                }
+                self.scope.pop_scope();
             },
             Stmt::Poison => (),
         }  

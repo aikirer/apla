@@ -81,7 +81,14 @@ impl Compile for Stmt {
                 out.extend(right.compile());
                 out.extend(left.compile());
                 self.add(&mut out, OpSet);
-            }
+            },
+            Stmt::Block { nodes } => {
+                self.add(&mut out, OpPushScope);
+                for node in nodes {
+                    out.extend(node.compile());
+                }
+                self.add(&mut out, OpPopScope);
+            },
             Stmt::Poison => panic!(),
         }
         out

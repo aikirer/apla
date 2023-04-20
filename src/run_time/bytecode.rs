@@ -7,5 +7,7 @@ pub enum OpCode {
     OpCreateVar(String), OpGetVar(String),
     OpSet,
 
+    OpPushScope, OpPopScope,
+
     OpNumber(i32), OpFloat(f32), OpString(String), OpBool(bool),
 }
