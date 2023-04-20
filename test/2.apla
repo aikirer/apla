@@ -1,7 +1,8 @@
-var x = "asd";
-var y: int;
+var x = 2;
 {
-    var x = 2;
-    y = x - 2;
+    var x = x + 1;
+    {
+    }
+    var y = x + 2;
 }
-var z = y + 5;
+var y = x + 2;

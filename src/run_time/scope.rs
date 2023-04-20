@@ -41,7 +41,7 @@ impl Scope {
     }
 
     pub fn pop_scope(&mut self) {
-        self.objects.pop();
+        dbg!(self.objects.pop());
     }
 
     fn get_current_scope(&mut self) -> &mut SingleScope {

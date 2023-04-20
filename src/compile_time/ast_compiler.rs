@@ -69,13 +69,15 @@ impl Compile for Stmt {
         let mut out = vec![];
         match self {
             Stmt::VarCreation { is_mut: _, name, ty: _, value } => {
-                self.add(&mut out, OpCreateVar(name.to_string()));
                 if let Some(val) = value {
                     out.extend(val.compile());
                     // place expression
+                    self.add(&mut out, OpCreateVar(name.to_string()));
                     self.add(&mut out, OpGetVar(name.to_string()));
                     self.add(&mut out, OpSet);
+                    return out;
                 }
+                self.add(&mut out, OpCreateVar(name.to_string()));
             },
             Stmt::Assignment { left, right } => {
                 out.extend(right.compile());
