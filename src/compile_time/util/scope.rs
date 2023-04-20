@@ -41,6 +41,20 @@ impl Scope {
                     None => Err(CTErrorKind::VarDoesntExist(name.to_string())),
                 }
     }
+
+    pub fn get_var_mut(
+        &mut self, name: &str
+    ) -> Result<&mut Variable, CTErrorKind> 
+    {
+        match self.scopes.iter_mut()
+            .rev()
+            .find_map(|v| { v.objects.iter_mut()
+                .find(|(var_name, _)| &**var_name == name) })
+                .map(|(_, val)| val) {
+                    Some(val) => Ok(val),
+                    None => Err(CTErrorKind::VarDoesntExist(name.to_string())),
+                }
+    }
 }
 
 impl Default for Scope {

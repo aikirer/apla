@@ -77,6 +77,11 @@ impl Compile for Stmt {
                     self.add(&mut out, OpSet);
                 }
             },
+            Stmt::Assignment { left, right } => {
+                out.extend(right.compile());
+                out.extend(left.compile());
+                self.add(&mut out, OpSet);
+            }
             Stmt::Poison => panic!(),
         }
         out

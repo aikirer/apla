@@ -9,6 +9,16 @@ pub struct Resolver<'a> {
     had_error: bool,
 }
 
+macro_rules! report_if_err {
+    ($self: expr, $($action: expr)+) => {
+        $(
+            if let Err(er) = $action {
+                $self.report_error(&er);
+            }
+        )*
+    };
+}
+
 
 impl<'a> Resolver<'a> {
     pub fn new(ast: &'a Ast, text: &'a str) -> Self {
@@ -98,7 +108,7 @@ impl<'a> Resolver<'a> {
     }
 
     fn resolve_stmt(&mut self, stmt: &Spanned<Stmt>) {
-        match &**stmt {
+        match stmt.obj_ref() {
             Stmt::VarCreation { is_mut, name, ty, value } => {
                 let mut poisoned = false;
                 let init = value.is_some();
@@ -155,8 +165,53 @@ impl<'a> Resolver<'a> {
                 if poisoned { var.poison() }
                 self.scope.add_var(name, var);
             },
+            Stmt::Assignment { left, right } => {
+                report_if_err!(self, self.resolve_expr(right));
+                
+                match self.is_assignable(&left) {
+                    Ok(name) => {
+                        self.scope.get_var_mut(&name).unwrap().initialized = true;
+                    },
+                    Err(er) => self.report_error(&er),
+                }
+                if let Err(er) = self.resolve_expr(left) {
+                    match er.kind {
+                        CTErrorKind::UninitVarUsed(_) => (),
+                        _ => self.report_error(&er),
+                    }
+                }
+            },
             Stmt::Poison => (),
         }  
+    }
+
+    fn is_assignable(&self, expr: &Spanned<Expr>) -> Result<String, Spanned<CTError>> {
+        if !expr.is_place() {
+            return Err(Spanned::new(
+                CTError::new(CTErrorKind::ExpectedPlace),
+                expr.start, expr.len,
+            ));
+        }
+        let var_name;
+        match expr.obj_ref() {
+            Expr::Var(n) => {
+                var_name = n.to_string();
+                let var = match self.scope.get_var(n) {
+                    Ok(var) => var,
+                    Err(kind) => return Err(Spanned::new(
+                        CTError::new(kind), expr.start, expr.len
+                    )),
+                };
+                if !var.is_mut && var.initialized {
+                    return Err(Spanned::new(
+                        CTError::new(CTErrorKind::CantAssignToConst),
+                        expr.start, expr.len
+                    ));
+                }
+            },
+            _ => unreachable!("not places"),
+        }
+        Ok(var_name)
     }
 
     fn report_error(&mut self, error: &Spanned<CTError>) {

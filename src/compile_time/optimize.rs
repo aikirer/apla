@@ -107,6 +107,10 @@ impl Optimize for Stmt {
                     expr.optimize();
                 }
             },
+            Stmt::Assignment { left, right } => {
+                left.optimize();
+                right.optimize();
+            }
             Self::Poison => (),
         }
     }

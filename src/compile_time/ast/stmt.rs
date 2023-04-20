@@ -10,6 +10,10 @@ pub enum Stmt {
         ty: Spanned<String>,
         value: Option<Spanned<Expr>>,
     },
+    Assignment {
+        left: Box<Spanned<Expr>>,
+        right: Box<Spanned<Expr>>,
+    },
 
     Poison
 }

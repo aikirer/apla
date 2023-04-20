@@ -55,14 +55,19 @@ impl<'a> Parser<'a> {
     fn stmt(&mut self) -> AstNode {
         match &**self.current {
             Token::Mut | Token::Var => self.var_creation(),
-            t @ _ => AstNode::Expr(self.expr().unwrap_or_else(|| {
-                self.report_error(
-                &self.make_error(CTErrorKind::Unexpected(t.clone())),
-                
-                );
-                Spanned::new(Expr::Poison, 0, 0)
+            t @ _ => {
+                let expr = self.expr().unwrap_or_else(|| {
+                    self.report_error(&self.make_error(
+                        CTErrorKind::Unexpected(t.clone())),
+                    );
+                    Spanned::new(Expr::Poison, 0, 0)
+                });
+                if self.current.obj_ref() == &Token::Equals {
+                    AstNode::Stmt(self.assignment(expr))
+                } else {
+                    AstNode::Expr(expr)
+                }
             }
-            )),
         }
     }
 
@@ -115,6 +120,25 @@ impl<'a> Parser<'a> {
         AstNode::Stmt(span)
     }
 
+    fn assignment(&mut self, left: Spanned<Expr>) -> Spanned<Stmt> {
+        if let Err(er) = self.consume(&Token::Equals) {
+            self.report_error(&er);
+        }
+        let right = self.expr().unwrap_or_else(|| {
+            self.report_error(&self.make_error(
+                CTErrorKind::ExpectedExpr,
+            ));
+            Spanned::new(Expr::Poison, 0, 0)
+        });
+        if let Err(er) = self.consume(&Token::Semicolon) {
+            self.report_error(&er);
+        };
+        Spanned::new(Stmt::Assignment { 
+            left: Box::new(left), 
+            right: Box::new(right) 
+        }, 0, 0)
+    }
+    
     fn _consume_string(&mut self) -> Result<&'a str, Spanned<CTError>> {
         if let Token::Str(s) = &**self.current {
             self.advance();
