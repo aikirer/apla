@@ -28,6 +28,13 @@ impl StackVal {
             t @ _ => t.clone(),
         }
     }
+
+    pub fn is_true(&self) -> Result<bool, RTError> {
+        match self {
+            Self::Bool(b) => Ok(*b),
+            _ => Err(RTError::ExpectedBool),
+        }
+    }
 }
 
 #[derive(Debug)]

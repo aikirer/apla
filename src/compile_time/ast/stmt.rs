@@ -17,6 +17,19 @@ pub enum Stmt {
     Block {
         nodes: Vec<AstNode>
     },
+    If {
+        condition: Spanned<Expr>,
+        true_branch: Box<AstNode>,
+        false_branch: Option<Box<AstNode>>,
+    },
 
     Poison
+}
+
+impl Stmt {
+    pub fn poison() -> Spanned<Self> {
+        Spanned::new(
+            Self::Poison, 0, 0
+        )
+    }
 }

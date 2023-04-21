@@ -115,6 +115,7 @@ impl Expr {
             Token::Str(s) => Some(Expr::String(s.to_string())),
             Token::Float(f) => Some(Expr::Float(*f)),
             Token::Number(i) => Some(Expr::Int(*i)),
+            Token::Bool(b) => Some(Expr::Bool(*b)),
             _ => None,
         }
     }

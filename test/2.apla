@@ -1,8 +1,5 @@
 var x = 2;
 {
-    var x = x + 1;
-    {
-    }
-    var y = x + 2;
+    mut var x = "asd";
+    x = x + '2';
 }
-var y = x + 2;

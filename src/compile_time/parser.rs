@@ -10,6 +10,31 @@ use super::{
         Ast, AstNode, stmt::Stmt,
     },
 };
+
+macro_rules! do_or_report_and {
+    ($self: expr, $action: expr => $and: block) => {
+        if let Err(er) = $action {
+            $self.report_error(&er);
+            $and;
+        }
+    };
+    ($self: expr, $action: expr => $and: block on_true => $else: block) => {
+        if let Err(er) = $action {
+            $self.report_error(&er);
+            $and;
+        } else { $else; }
+    };
+}
+
+macro_rules! do_or_report_and_return {
+    ($self: expr, $action: expr) => {
+        if let Err(er) = $action {
+            $self.report_error(&er);
+            return AstNode::Stmt(Stmt::poison());
+        }
+    };
+}
+
 pub type SpanToken = Spanned<Token>;
 
 #[derive(Debug)]
@@ -38,20 +63,31 @@ impl<'a> Parser<'a> {
 
     pub fn parse(mut self) -> (Ast, bool) {
         self.ast.text = Some(self.txt.to_string());
-        let block = self.stmt_block();
+        let block = self.stmt_block(&[]);
         self.ast.nodes.extend(block);
         (self.ast, self.had_error)
     }
 
-    fn stmt_block(&mut self) -> Vec<AstNode> {
+    fn stmt_block(&mut self, end_at: &[Token]) -> Vec<AstNode> {
         let mut result = vec![];
         while !self.is_at_end() {
             let node = match self.stmt() {
                 Ok(node) => node,
                 Err((er, node)) => {
-                    if er.kind == CTErrorKind::Unexpected(Token::RightBrace) {
-                        self.advance();
-                        break;
+                    let is_ending_token = end_at.iter().find(|e| {
+                        er.kind == CTErrorKind::Unexpected(e.clone().clone())
+                    });
+                    match is_ending_token {
+                        Some(_) => {
+                            self.advance();
+                            break;
+                        },
+                        None => {
+                            println!("{er:?}");
+                            self.report_error(
+                                &Spanned::new(er, self.current.start, self.current.len)
+                            );
+                        }
                     }
                     node
                 }
@@ -65,6 +101,7 @@ impl<'a> Parser<'a> {
         match &**self.current {
             Token::Mut | Token::Var => Ok(self.var_creation()),
             Token::LeftBrace => Ok(self.block()),
+            Token::If => Ok(self.if_stmt()),
             t @ _ => {
                 let expr = match self.expr() {
                     Some(v) => v,
@@ -81,6 +118,18 @@ impl<'a> Parser<'a> {
                 } else {
                     Ok(AstNode::Expr(expr))
                 }
+            }
+        }
+    }
+
+    fn safe_stmt(&mut self) -> AstNode {
+        match self.stmt()  {
+            Ok(stmt) => stmt,
+            Err(er) => {
+                self.report_error(&Spanned::new(
+                    er.0, self.current.start, self.current.len
+                ));
+                AstNode::Stmt(Stmt::poison())
             }
         }
     }
@@ -139,11 +188,50 @@ impl<'a> Parser<'a> {
             self.report_error(&er);
         }
         let start = self.current.start;
-        let nodes = self.stmt_block();
-        dbg!(AstNode::Stmt(Spanned::new(
+        let nodes = self.stmt_block(&[Token::RightBrace]);
+        AstNode::Stmt(Spanned::new(
             Stmt::Block { nodes }, start, 
             self.current.start - start + self.current.len
-        )))
+        ))
+    }
+
+    fn if_stmt(&mut self) -> AstNode {
+        let start = self.current.start;
+        do_or_report_and_return!(self, self.consume(&Token::If));
+        do_or_report_and_return!(self, self.consume(&Token::LeftParen));
+        let condition = match self.expr() {
+            Some(expr) => expr,
+            None => {
+                self.report_error(
+                    &Spanned::new(
+                        CTError::new(CTErrorKind::ExpectedExpr),
+                        self.current.start, self.current.len
+                    )
+                );
+                return AstNode::Stmt(Stmt::poison())
+            }
+        };
+        let true_branch;
+        let mut false_branch = None;
+        do_or_report_and!(self, self.consume(&Token::RightParen) => {
+            true_branch = Box::new(AstNode::Stmt(Stmt::poison()))
+        } on_true => {
+            true_branch = Box::new(self.safe_stmt());
+        });
+        if self.current.obj_ref() == &Token::Else {
+            self.advance();
+            false_branch = Some(Box::new(self.safe_stmt()));
+        }
+        AstNode::Stmt(
+            Spanned::new(
+                Stmt::If { 
+                    condition: condition, 
+                    true_branch: true_branch, 
+                    false_branch: false_branch
+                },
+                start, self.current.start - start + self.current.len
+            )
+        )
     }
     
     fn assignment(&mut self, left: Spanned<Expr>) -> Spanned<Stmt> {
@@ -214,8 +302,6 @@ impl<'a> Parser<'a> {
             ExprRole::Object => self.object(ast),
             ExprRole::Literal => self.literal(ast),
             ExprRole::Grouping => self.grouping(ast),
-            ExprRole::Bool => todo!(),
-            ExprRole::Float => todo!(),
         };
         Some(())
     }

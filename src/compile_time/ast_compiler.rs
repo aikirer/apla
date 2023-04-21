@@ -91,6 +91,21 @@ impl Compile for Stmt {
                 }
                 self.add(&mut out, OpPopScope);
             },
+            Stmt::If { condition, true_branch, false_branch } => {
+                self.add(&mut out, OpPushScope);
+                out.extend(condition.compile());
+                let true_branch_code = true_branch.compile();
+                let true_branch_len = true_branch_code.len();
+                self.add(&mut out, OpIf(true_branch_len));
+                out.extend(true_branch_code);
+                if let Some(branch) = false_branch {
+                    let false_branch_code = branch.compile();
+                    let false_branch_len = false_branch_code.len();
+                    self.add(&mut out, OpElse(false_branch_len));
+                    out.extend(false_branch_code);
+                }
+                self.add(&mut out, OpPopScope);
+            }
             Stmt::Poison => panic!(),
         }
         out

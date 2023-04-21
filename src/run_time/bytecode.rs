@@ -9,5 +9,7 @@ pub enum OpCode {
 
     OpPushScope, OpPopScope,
 
+    OpIf(usize), OpElse(usize),
+
     OpNumber(i32), OpFloat(f32), OpString(String), OpBool(bool),
 }

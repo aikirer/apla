@@ -1,6 +1,6 @@
 use crate::{spanned::Spanned, expr_type::ExprType};
 
-use super::{util::{variable::Variable, scope::Scope}, ast::{Ast, AstNode, expr::Expr, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
+use super::{util::{variable::Variable, scope::Scope}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
 
 pub struct Resolver<'a> {
     ast: &'a Ast,
@@ -80,22 +80,26 @@ impl<'a> Resolver<'a> {
                 let t1 = self.resolve_expr(&left)?;
                 let t2 = self.resolve_expr(&right)?;
                 let allowed_types = op.get_legal_types();
-                if allowed_types.contains(&ExprType::Any) {
-                    return Ok(t1);
+                if !allowed_types.contains(&ExprType::Any) {    
+                    if t1 != t2 {
+                        return Err(make_error(
+                            CTErrorKind::MismatchedTypes(t1, t2),
+                            expr.start, expr.len,
+                        ));
+                    }
+                    if !allowed_types.contains(&t1) {
+                        return Err(make_error(
+                            CTErrorKind::CantUseOpForTypes(op.clone(), t1),
+                            expr.start, expr.len,
+                        ));
+                    }
                 }
-                if t1 != t2 {
-                    return Err(make_error(
-                        CTErrorKind::MismatchedTypes(t1, t2),
-                        expr.start, expr.len,
-                    ));
+                match op {
+                    Operator::Smaller | Operator::SmallerEqual | 
+                    Operator::Greater | Operator::GreaterEqual | 
+                    Operator::Equal | Operator::NotEqual => Ok(ExprType::Bool),
+                    _ => Ok(t1),
                 }
-                if !allowed_types.contains(&t1) {
-                    return Err(make_error(
-                        CTErrorKind::CantUseOpForTypes(op.clone(), t1),
-                        expr.start, expr.len,
-                    ));
-                }
-                Ok(t1)
             },
             Expr::Unary { expr } => {
                 match self.resolve_expr(expr)? {
@@ -170,11 +174,28 @@ impl<'a> Resolver<'a> {
                 self.scope.add_var(name, var);
             },
             Stmt::Assignment { left, right } => {
-                report_if_err!(self, self.resolve_expr(right));
+                let ty1 = match self.resolve_expr(right) {
+                    Ok(t) => t,
+                    Err(er) => {
+                        self.report_error(&er);
+                        ExprType::ToBeInferred
+                    },
+                };
                 
                 match self.is_assignable(&left) {
                     Ok(name) => {
-                        self.scope.get_var_mut(&name).unwrap().initialized = true;
+                        let ty = {
+                            let v = self.scope.get_var_mut(&name).unwrap();
+                            v.initialized = true;
+                            v.ty.clone()
+                        };
+                        if ty != ty1 {
+                            self.report_error(&Spanned::new(
+                                CTError::new(CTErrorKind::MismatchedTypes(
+                                    ty, ty1)),
+                                left.start, left.len
+                            ));
+                        }
                     },
                     Err(er) => self.report_error(&er),
                 }
@@ -192,6 +213,24 @@ impl<'a> Resolver<'a> {
                 }
                 self.scope.pop_scope();
             },
+            Stmt::If { condition, true_branch, false_branch } => {
+                let cond_type = match self.resolve_expr(condition) {
+                    Ok(ty) => ty,
+                    Err(er) => {
+                        self.report_error(&er);
+                        ExprType::Any
+                    }
+                };
+                if cond_type != ExprType::Bool && cond_type != ExprType::Any {
+                    self.report_error(&Spanned::new(CTError::new(
+                        CTErrorKind::MismatchedTypes(ExprType::Bool, cond_type)
+                    ), condition.start, condition.len))
+                }
+                self.resolve_node(true_branch);
+                if let Some(node) = false_branch {
+                    self.resolve_node(node);
+                }
+            }
             Stmt::Poison => (),
         }  
     }

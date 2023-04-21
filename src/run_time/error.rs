@@ -8,6 +8,7 @@ pub enum RTError {
     MismatchedTypes(ExprType, ExprType),
     VarDoesntExist(String),
     ExpectedPlace,
+    ExpectedBool,
 }
 
 impl Error for RTError {}
@@ -24,6 +25,8 @@ impl Display for RTError {
                 format!("Variable {n} doesn't exist!"),
             Self::ExpectedPlace => 
                 format!("Expected a place expression!"),
+            Self::ExpectedBool => 
+                format!("Expected a boolean value!"),
         };
         write!(f, "{t}")
     }

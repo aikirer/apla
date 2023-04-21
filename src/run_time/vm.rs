@@ -44,6 +44,17 @@ impl VM {
                 OpCreateVar(n) => self.scope.add_var(n, StackVal::Null),
                 OpPushScope => self.scope.push_scope(),
                 OpPopScope => self.scope.pop_scope(),
+
+                OpIf(if_len) => {
+                    if !self.stack.pop()?.is_true()? {
+                        // skip ahead of the else instr
+                        at += if_len + 1;
+                    }
+                },
+                OpElse(else_len) => {
+                    // skip the whole block
+                    at += else_len;
+                },
             }
             at += 1;
         }

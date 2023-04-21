@@ -115,6 +115,13 @@ impl Optimize for Stmt {
                 for node in nodes {
                     node.optimize();
                 }
+            },
+            Stmt::If { condition, true_branch, false_branch } => {
+                condition.optimize();
+                true_branch.optimize();
+                if let Some(br) = false_branch {
+                    br.optimize();
+                }
             }
             Self::Poison => (),
         }
