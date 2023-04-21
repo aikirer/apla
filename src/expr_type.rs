@@ -4,7 +4,7 @@ use crate::compile_time::error::CTError;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprType {
-    Int, Float, String, Bool, ToBeInferred, Any
+    Int, Float, String, Bool, ToBeInferred, Any, Null
 }
 
 impl Display for ExprType {
@@ -16,6 +16,7 @@ impl Display for ExprType {
             ExprType::Bool => "bool",
             ExprType::ToBeInferred => "not inferred",
             ExprType::Any => "any",
+            ExprType::Null => "null",
         })
     }
 }

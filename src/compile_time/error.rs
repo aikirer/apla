@@ -16,12 +16,14 @@ pub enum CTErrorKind {
     VarDoesntExist(String),
     UninitVarUsed(String),
     ExpectedOperator,
+    ExpectedStmt,
     ExpectedExpr,
     HadError,
     ExpectedIdent,
     ExpectedStr,
     CantInferType,
     ExpectedPlace,
+    ExpectedVarCreation,
     CantAssignToConst,
 
     Poisoned,
@@ -72,9 +74,11 @@ impl Display for CTErrorKind {
                 format!("var '{n}' cannot be used when uninitialized!"),
             Self::HadError => "Had an error!".to_string(), // tmp
             Self::ExpectedExpr => "Expected an expression!".to_string(),
+            Self::ExpectedStmt => "Expected a statement!".to_string(),
             Self::ExpectedPlace => "Expected a place expression!".to_string(),
             Self::ExpectedIdent => "Expected an identifier!".to_string(),
             Self::ExpectedStr => "Expected a string!".to_string(),
+            Self::ExpectedVarCreation => "Expected a variable declaration!".to_string(),
             Self::CantInferType => "Cannot infer the type!".to_string(),
             Self::CantAssignToConst => 
                 "Cannot assign to a constant variable!".to_string(),
