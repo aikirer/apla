@@ -1,9 +1,15 @@
-use crate::run_time::bytecode::OpCode;
+use std::collections::HashMap;
+
+use crate::{run_time::bytecode::OpCode, call::Call};
 
 pub type Output = Vec<OpCode>;
 
+pub struct Ctx<'a> {
+    pub functions: HashMap<String, &'a mut dyn Call>
+}
+
 pub trait Compile {
-    fn compile(&self) -> Output;    
+    fn compile(&self, ctx: &Ctx) -> Output;    
 
     fn add(&self, out: &mut Output, instr: OpCode) {
         out.push(instr);

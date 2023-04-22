@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{spanned::Spanned, expr_type::ExprType};
+use crate::{spanned::Spanned, expr_type::ExprType, call::Call};
 
 use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
 
@@ -120,10 +120,10 @@ impl<'a> Resolver<'a> {
                 ExprType::Null
             },
         };
-        ParsedFunc::new(ret_type, args)
+        ParsedFunc::new(func.name.to_string(), ret_type, args)
     }
 
-    fn resolve_node(&mut self, node: &AstNode) {
+    pub fn resolve_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Expr(e) => {
                 if let Err(er) = self.resolve_expr(&e) {
@@ -135,7 +135,7 @@ impl<'a> Resolver<'a> {
         };
     }
 
-    fn resolve_expr(&self, expr: &Spanned<Expr>) -> Result<ExprType, Spanned<CTError>> {
+    pub fn resolve_expr(&self, expr: &Spanned<Expr>) -> Result<ExprType, Spanned<CTError>> {
         if expr.poisoned { return Ok(ExprType::ToBeInferred) }
         match &**expr {
             Expr::Int(_) => Ok(ExprType::Int),
@@ -191,13 +191,27 @@ impl<'a> Resolver<'a> {
                         expr.start, expr.len)),
                 }
             },
+            Expr::Call { name, args: _ } => {
+                match self.functions.get(&name.to_string()) {
+                    Some(f) => {
+                        f.1.resolve(expr, self)?;
+                        Ok(f.1.return_type.clone())
+                    }
+                    None => Err(
+                            Spanned::from_other_span(
+                                CTError::new(
+                                    CTErrorKind::FuncDoesntExist(name.to_string())
+                                ), name)
+                        ),
+                }
+            }
             Expr::Poison => Err(Spanned::new(
                 CTError::new(CTErrorKind::Poisoned), 0, 0
             )),
         }
     }
 
-    fn resolve_stmt(&mut self, stmt: &Spanned<Stmt>) {
+    pub fn resolve_stmt(&mut self, stmt: &Spanned<Stmt>) {
         match stmt.obj_ref() {
             Stmt::VarCreation { is_mut, name, ty, value } => {
                 let (name, var) = self.create_var(
@@ -267,7 +281,7 @@ impl<'a> Resolver<'a> {
         }  
     }
 
-    fn create_var(
+    pub fn create_var(
         &mut self, stmt: &Spanned<Stmt>,
         is_mut: bool, name: &Spanned<String>,
         ty: &Spanned<String>, value: &Option<Spanned<Expr>>
@@ -358,7 +372,7 @@ impl<'a> Resolver<'a> {
         Ok(var_name)
     }
 
-    fn report_error(&mut self, error: &Spanned<CTError>) {
+    pub fn report_error(&mut self, error: &Spanned<CTError>) {
         self.had_error = true;
         report_error(error, self.text);
     }

@@ -41,6 +41,10 @@ pub enum Expr {
     Unary {
         expr: Box<Spanned<Expr>>
     },
+    Call {
+        name: Spanned<String>,
+        args: Vec<Spanned<Expr>>,
+    },
 
     Poison
 }

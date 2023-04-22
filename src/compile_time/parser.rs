@@ -121,7 +121,12 @@ impl<'a> Parser<'a> {
             }
             t @ _ => {
                 let expr = match self.expr() {
-                    Some(v) => v,
+                    Some(v) => {
+                        do_or_report_and!(self,
+                            self.consume(&Token::Semicolon)
+                            => {});
+                        v
+                    },
                     None => {
                         return Err((
                             CTError::new(
@@ -346,7 +351,7 @@ impl<'a> Parser<'a> {
         };
         let body = self.block();
         self.functions.insert(
-            name.to_string(), Func::new(ret_type, args, body)
+            name.to_string(), Func::new(name.to_string(), ret_type, args, body)
         );
     }
     
@@ -487,9 +492,16 @@ impl<'a> Parser<'a> {
         let (start, end) = (self.current.start, self.current.len);        
         match self.consume_ident() {
             Ok(ident) => {
-                ast.nodes.push(AstNode::Expr(Spanned::new(
-                    Expr::Var(ident.to_string()), start, end)
-                ));
+                if self.current.obj_ref() == &Token::LeftParen {
+                    let ident = Spanned::from_other_span(
+                        ident.to_string(), self.previous
+                    );
+                    self.func_call(ast, ident);
+                } else {
+                    ast.nodes.push(AstNode::Expr(Spanned::new(
+                        Expr::Var(ident.to_string()), start, end)
+                    ));
+                }
             },
             Err(er) => {
                 self.advance();
@@ -514,6 +526,48 @@ impl<'a> Parser<'a> {
         self.advance();
         self.parse_prec(PrecedenceLevel::Assignment, ast);
         self.advance(); // change to consume rparen
+    }
+
+    fn func_call(&mut self, ast: &mut Ast, name: Spanned<String>) {
+        let start = self.current.start;
+        println!("current: {:?}", self.current);
+        do_or_report_and!(self, self.consume(&Token::LeftParen) => {});
+        let mut args = vec![];
+        while !self.is_at_end() {
+            if self.current.obj_ref() == &Token::RightParen { 
+                self.advance();
+                break; 
+            }
+            let arg = match self.expr() {
+                Some(arg) => arg,
+                None => {
+                    self.report_error(
+                        &Spanned::from_other_span(
+                            CTError::new(CTErrorKind::ExpectedExpr),
+                            &self.current
+                        ));
+                    Spanned::new(Expr::Poison, 0, 0)
+                }
+            };
+            args.push(arg);
+            if let Err(er) = self.consume(&Token::Comma) {
+                if self.current.obj_ref() == &Token::RightParen {
+                    self.advance();
+                    break;
+                }
+                self.report_error(&er);
+            }
+        }
+        ast.nodes.push(AstNode::Expr(
+            Spanned::new(
+                dbg!(Expr::Call { 
+                    name: name, 
+                    args,
+                }), 
+                self.previous.start - start,
+                self.previous.start + self.previous.len - start
+            )
+        ));
     }
 
     fn consume(

@@ -9,6 +9,7 @@ pub enum RTError {
     VarDoesntExist(String),
     ExpectedPlace,
     ExpectedBool,
+    ExpectedCallable,
 }
 
 impl Error for RTError {}
@@ -27,6 +28,8 @@ impl Display for RTError {
                 format!("Expected a place expression!"),
             Self::ExpectedBool => 
                 format!("Expected a boolean value!"),
+            Self::ExpectedCallable => 
+                format!("Expected a callable!"),
         };
         write!(f, "{t}")
     }

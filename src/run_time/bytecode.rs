@@ -11,5 +11,7 @@ pub enum OpCode {
 
     OpIf(usize), OpElse(usize),
 
+    OpCall(String),
+
     OpNumber(i32), OpFloat(f32), OpString(String), OpBool(bool),
 }

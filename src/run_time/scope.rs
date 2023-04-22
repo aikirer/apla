@@ -6,7 +6,7 @@ pub type SingleScope = HashMap<String, Rc<RefCell<StackVal>>>;
 
 #[derive(Debug)]
 pub struct Scope {
-    objects: Vec<SingleScope>,
+    pub objects: Vec<SingleScope>,
 }
 
 impl Scope {

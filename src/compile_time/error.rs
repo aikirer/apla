@@ -4,7 +4,7 @@ use crate::{token::Token, expr_type::ExprType, spanned::Spanned};
 
 use super::ast::expr::Operator;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum CTErrorKind {
     Expected(Token),
     ExpectedButFound(Token, Token),
@@ -27,10 +27,13 @@ pub enum CTErrorKind {
     CantAssignToConst,
     TypeNotAnnotated,
 
+    WrongArgCount(usize),
+    FuncDoesntExist(String),
+
     Poisoned,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CTError {
     pub kind: CTErrorKind
 }
@@ -85,6 +88,10 @@ impl Display for CTErrorKind {
                 "Cannot assign to a constant variable!".to_string(),
             Self::TypeNotAnnotated =>
                 "The type needs to be annotated explicitly for this variable!".to_string(),
+            Self::WrongArgCount(count) =>
+                format!("This function takes {count} arguments!"),
+            Self::FuncDoesntExist(name) =>
+                format!("Function '{name}' doesn't exist!"),
             Self::Poisoned => "poisoned".to_string(),
         })
     }
@@ -94,23 +101,22 @@ pub fn report_error(error: &Spanned<CTError>, text: &str) {
     print!(" | [error] {}", **error);
     let mut at_char = error.start;
     let mut at_line = 1;
-    let line = text.lines().find(|line| {
-        if line.len() <= at_char {
-            at_char -= line.len();
-            at_line += 1;
-            false
-        } else {
-            true
-        }
-    });
-    println!(" [line {at_line}]");
-    let line = match line {
-        Some(l) => l,
-        None => {
-            eprintln!(" | couldn't find the error in code! (is it at the end of the file?)");
-            return;
-        }
+    let mut lines = text.lines().peekable();
+    let mut curr_line = lines.next().unwrap();
+    let mut len = curr_line.len();
+    loop {
+        if at_char <= len { break; }
+        at_char -= len;
+        at_line += 1;
+        match lines.peek() {
+            Some(l) => if l.len() > at_char { break; }
+            None => break,
+        };
+        curr_line = lines.next().unwrap();
+        len = curr_line.len();
     };
+    println!(" [line {at_line}]");
+    let line = curr_line;
     let prev_len = line.len() - 1;
     let line = line.trim_start();
     let at_char = at_char - (prev_len - (line.len() - 1));

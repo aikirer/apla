@@ -11,9 +11,9 @@ use super::{
 
 #[derive(Debug)]
 pub struct VM<'a> {
-    stack: Stack,
-    scope: Scope,
-    callables: HashMap<String, &'a dyn Call>
+    pub stack: Stack,
+    pub scope: Scope,
+    pub callables: HashMap<String, &'a dyn Call>
 }
 
 // prefixed with Op
@@ -69,6 +69,11 @@ impl<'a> VM<'a> {
                     // skip the whole block
                     at += else_len;
                 },
+
+                OpCall(name) => {
+                    self.get_callable(&name)?.call(self)?;
+                    ()
+                }
             }
             at += 1;
         }
@@ -94,6 +99,16 @@ impl<'a> VM<'a> {
             _ => panic!()
         });
         Ok(())
+    }
+
+    fn get_callable(
+        &self, name: &str
+    ) -> Result<&&'a dyn Call, RTError> 
+    {
+        match self.callables.get(name) {
+            Some(a) => Ok(a),
+            None => Err(RTError::ExpectedCallable)
+        }
     }
 }
 

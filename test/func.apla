@@ -1,3 +1,9 @@
-func f() {
-    
+func f(x: int) {
+    var y = 95;
+}
+
+f(25);
+var x = 'asd';
+{
+    var y = 12;
 }

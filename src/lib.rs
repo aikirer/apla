@@ -17,6 +17,7 @@ pub mod token;
 pub mod run_time;
 pub mod spanned;
 pub mod call;
+pub mod apla_std;
 
 pub fn compile(
     input: &str
