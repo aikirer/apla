@@ -25,6 +25,7 @@ pub enum CTErrorKind {
     ExpectedPlace,
     ExpectedVarCreation,
     CantAssignToConst,
+    TypeNotAnnotated,
 
     Poisoned,
 }
@@ -82,6 +83,8 @@ impl Display for CTErrorKind {
             Self::CantInferType => "Cannot infer the type!".to_string(),
             Self::CantAssignToConst => 
                 "Cannot assign to a constant variable!".to_string(),
+            Self::TypeNotAnnotated =>
+                "The type needs to be annotated explicitly for this variable!".to_string(),
             Self::Poisoned => "poisoned".to_string(),
         })
     }

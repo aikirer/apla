@@ -37,6 +37,7 @@ impl<'a> Scanner<'a> {
                 '=' => self.token_if_next_else(vec![('=', T::EqualsEquals)], T::Equals),
                 ':' => T::Colon,
                 '.' => T::Dot,
+                ',' => T::Comma,
                 '(' => T::LeftParen,
                 ')' => T::RightParen,
                 '[' => T::LeftBracket,

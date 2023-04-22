@@ -1,44 +1,126 @@
+use std::collections::HashMap;
+
 use crate::{spanned::Spanned, expr_type::ExprType};
 
-use super::{util::{variable::Variable, scope::Scope}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
+use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
+
+pub type FunctionBundle<'a> = (&'a Func, ParsedFunc);
 
 pub struct Resolver<'a> {
     ast: &'a Ast,
+    functions: HashMap<String, FunctionBundle<'a>>,
     scope: Scope,
     text: &'a str,
     had_error: bool,
 }
 
-macro_rules! report_if_err {
-    ($self: expr, $($action: expr)+) => {
-        $(
-            if let Err(er) = $action {
-                $self.report_error(&er);
-            }
-        )*
-    };
-}
-
 
 impl<'a> Resolver<'a> {
-    pub fn new(ast: &'a Ast, text: &'a str) -> Self {
-        Self {
+    pub fn new(
+        ast: &'a Ast, text: &'a str, functions: &'a HashMap<String, Func>
+    ) -> Self 
+    {
+        let mut new_self =  Self {
             ast,
             scope: Scope::new(),
+            functions: HashMap::new(),
             text,
             had_error: false,
+        };
+        let functions = functions
+            .iter()
+            .map(|(name, func)| 
+                (name.to_string(), (func, new_self.parse_func(func)))
+            )
+            .collect::<HashMap<_, _>>();
+        // doing it here doesn't require borrowing self
+        for (_, (orig_func, parsed_func)) in &functions {
+            new_self.scope.add_scope();
+            for arg in &parsed_func.args {
+                new_self.scope.add_var(arg.0, arg.1.clone());
+            }
+            new_self.resolve_node(&orig_func.node);
+            new_self.scope.pop_scope();
         }
+        new_self.functions = functions;
+        new_self
     }
 
-    pub fn resolve(&mut self) -> Result<(), ()> {
+    pub fn resolve(mut self) -> Result<HashMap<String, FunctionBundle<'a>>, ()> {
+
         for node in &self.ast.nodes {
             self.resolve_node(node);
         }
         println!("VARIABLES: {:?}", self.scope);
         match self.had_error {
             true => Err(()),
-            false => Ok(()),
+            false => Ok(self.functions),
         }
+    }
+
+    fn parse_func_args(
+        &mut self, args: &Vec<AstNode>
+    ) -> HashMap<String, Variable> 
+    {
+        let mut result = vec![];
+        for arg in args {
+            match arg {
+                AstNode::Stmt(s) => match s.obj_ref() {
+                    Stmt::VarCreation { name, is_mut, ty, value } => {
+                        let mut var = self.create_var(
+                            &s, *is_mut, name, ty, value
+                        );
+                        var.1.initialized = true;
+                        result.push(var)
+                    },
+                    _ => {
+                        self.report_error(&Spanned::new(
+                            CTError::new(CTErrorKind::ExpectedVarCreation),
+                            s.start, s.len
+                        ));
+                    }
+                },
+                AstNode::Expr(e) => {
+                    self.report_error(&Spanned::new(
+                        CTError::new(CTErrorKind::ExpectedStmt),
+                        e.start, e.len
+                    ));
+                }
+            }
+        };
+        result.into_iter()
+            .map(|(name, var)| {
+                if var.ty == ExprType::ToBeInferred {
+                    self.report_error(&Spanned::new(
+                        CTError::new(CTErrorKind::TypeNotAnnotated), 
+                        name.start, name.len
+                    ));
+                }
+                (name.to_string(), var)
+            }).collect()
+    }
+
+    fn parse_func(&mut self, func: &Func) -> ParsedFunc {
+        let args = self.parse_func_args(&func.args);
+        let ret_type = match ExprType::try_from(func.return_type.as_ref()) {
+            Ok(ty) => {
+                if ty == ExprType::ToBeInferred {
+                    self.report_error(&Spanned::new(
+                        CTError::new(CTErrorKind::TypeNotAnnotated), 
+                        func.return_type.start, func.return_type.len
+                    ));
+                }
+                ty
+            },
+            Err(_) => {
+                self.report_error(&Spanned::from_other_span(
+                    CTError::new(CTErrorKind::ExpectedType),
+                    &func.return_type,
+                ));
+                ExprType::Null
+            },
+        };
+        ParsedFunc::new(ret_type, args)
     }
 
     fn resolve_node(&mut self, node: &AstNode) {
@@ -118,60 +200,10 @@ impl<'a> Resolver<'a> {
     fn resolve_stmt(&mut self, stmt: &Spanned<Stmt>) {
         match stmt.obj_ref() {
             Stmt::VarCreation { is_mut, name, ty, value } => {
-                let mut poisoned = false;
-                let init = value.is_some();
-                let var_type;
-                if value.is_none() {
-                    match ExprType::try_from(&ty as &str) {
-                        Ok(t) => {
-                            if t == ExprType::ToBeInferred {
-                                self.report_error(&Spanned::new(CTError::new(
-                                    CTErrorKind::CantInferType), 
-                                    stmt.start, stmt.len
-                                ))
-                            }
-                            var_type = t;
-                        },
-                        Err(er) => {
-                            self.report_error(&Spanned::new(er, stmt.start, stmt.len));
-                            poisoned = true;
-                            var_type = ExprType::ToBeInferred;
-                        },
-                    }
-                } else {
-                    let value = value.as_ref().unwrap();
-                    match ExprType::try_from(&ty as &str) {
-                        Ok(mut t) => {
-                            match self.resolve_expr(&value) {
-                                Ok(t2) => {
-                                    if t == ExprType::ToBeInferred {
-                                        t = t2;
-                                    } else if &t != &t2 {
-                                        poisoned = true;
-                                        self.report_error(&Spanned::new(CTError::new(
-                                            CTErrorKind::MismatchedTypes(t.clone(), t2)), 
-                                            value.start, value.len
-                                        ));
-                                    }
-                                    
-                                },
-                                Err(er) =>{
-                                    self.report_error(&er);
-                                    poisoned = true;
-                                }
-                            }
-                            var_type = t
-                        },
-                        Err(er) => {
-                            self.report_error(&Spanned::new(er, ty.start, ty.len));
-                            poisoned = true;
-                            var_type = ExprType::Int
-                        },
-                    };
-                }   
-                let mut var = Variable::new(var_type, *is_mut, init);
-                if poisoned { var.poison() }
-                self.scope.add_var(name, var);
+                let (name, var) = self.create_var(
+                    stmt, *is_mut, name, ty, value
+                );
+                self.scope.add_var(&name, var)
             },
             Stmt::Assignment { left, right } => {
                 let ty1 = match self.resolve_expr(right) {
@@ -235,6 +267,68 @@ impl<'a> Resolver<'a> {
         }  
     }
 
+    fn create_var(
+        &mut self, stmt: &Spanned<Stmt>,
+        is_mut: bool, name: &Spanned<String>,
+        ty: &Spanned<String>, value: &Option<Spanned<Expr>>
+    ) -> (Spanned<String>, Variable)
+    {
+        let mut poisoned = false;
+        let init = value.is_some();
+        let var_type;
+        if value.is_none() {
+            match ExprType::try_from(&ty as &str) {
+                Ok(t) => {
+                    if t == ExprType::ToBeInferred {
+                        self.report_error(&Spanned::new(CTError::new(
+                            CTErrorKind::CantInferType), 
+                            stmt.start, stmt.len
+                        ))
+                    }
+                    var_type = t;
+                },
+                Err(er) => {
+                    self.report_error(&Spanned::new(er, stmt.start, stmt.len));
+                    poisoned = true;
+                    var_type = ExprType::ToBeInferred;
+                },
+            }
+        } else {
+            let value = value.as_ref().unwrap();
+            match ExprType::try_from(&ty as &str) {
+                Ok(mut t) => {
+                    match self.resolve_expr(value) {
+                        Ok(t2) => {
+                            if t == ExprType::ToBeInferred {
+                                t = t2;
+                            } else if &t != &t2 {
+                                poisoned = true;
+                                self.report_error(&Spanned::new(CTError::new(
+                                    CTErrorKind::MismatchedTypes(t.clone(), t2)), 
+                                    value.start, value.len
+                                ));
+                            }
+                            
+                        },
+                        Err(er) =>{
+                            self.report_error(&er);
+                            poisoned = true;
+                        }
+                    }
+                    var_type = t
+                },
+                Err(er) => {
+                    self.report_error(&Spanned::new(er, ty.start, ty.len));
+                    poisoned = true;
+                    var_type = ExprType::Int
+                },
+            };
+        }   
+        let mut var = Variable::new(var_type, is_mut, init);
+        if poisoned { var.poison() }
+        (name.clone(), var)
+    }
+
     fn is_assignable(&self, expr: &Spanned<Expr>) -> Result<String, Spanned<CTError>> {
         if !expr.is_place() {
             return Err(Spanned::new(
@@ -282,4 +376,3 @@ fn make_error(
         poisoned: false,
     }
 }
-

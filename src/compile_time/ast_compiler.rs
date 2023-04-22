@@ -1,20 +1,45 @@
+use std::collections::HashMap;
+
+use crate::call::Call;
 use crate::run_time::bytecode::OpCode;
 use super::ast::stmt::Stmt;
 use super::ast::{Ast, expr::Expr, AstNode};
 
 use super::compile::{self, Compile};
+use super::resolver::FunctionBundle;
+use super::util::func::{Func, ParsedFunc};
 
 pub struct Compiler<'a> {
     pub ast: &'a Ast,
+    pub functions: HashMap<String, FunctionBundle<'a>>
 }
 
 impl<'a> Compiler<'a> {
-    pub fn new(ast: &'a Ast) -> Self {
-        Self { ast }
+    pub fn new(
+        ast: &'a Ast, 
+        functions: HashMap<String, FunctionBundle<'a>>
+    ) -> Self 
+    {
+        Self { ast, functions }
     }
 
-    pub fn compile(&mut self) -> compile::Output {
-        self.ast.compile()
+    pub fn compile(mut self) -> (compile::Output, HashMap<String, ParsedFunc>) 
+    {
+        for (_, (orig_func, parsed_func)) in &mut self.functions {
+            parsed_func.code = 
+                parsed_func.compile_call(&orig_func.node);
+        }
+        let functions = self.functions
+            .into_iter()
+            .map(|(name, (_, parsed))| (name, parsed))
+            .collect();
+        (self.ast.compile(), functions)
+    }
+}
+
+impl Compile for Func {
+    fn compile(&self) -> compile::Output {
+        self.node.compile()
     }
 }
 

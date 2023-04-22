@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::{
     spanned::Spanned,
-    token::{ExprRole, PrecedenceLevel, Token}, compile_time::util::func::Func, expr_type::ExprType,
+    token::{ExprRole, PrecedenceLevel, Token}, 
+    compile_time::util::func::Func,
 };
 
 use super::{
@@ -47,7 +48,7 @@ pub struct Parser<'a> {
     pub functions: HashMap<String, Func>,
     pub ast: Ast,
     pub txt: &'a str,
-    had_error: bool,
+    pub had_error: bool,
     at: usize,
 }
 
@@ -65,11 +66,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> (Ast, bool) {
+    pub fn parse(mut self) -> Self {
         self.ast.text = Some(self.txt.to_string());
         let block = self.stmt_block(&[]);
         self.ast.nodes.extend(block);
-        (self.ast, self.had_error)
+        self
     }
 
     fn stmt_block(&mut self, end_at: &[Token]) -> Vec<AstNode> {
@@ -81,11 +82,9 @@ impl<'a> Parser<'a> {
                     let is_ending_token = end_at.iter().find(|e| {
                         er.kind == CTErrorKind::Unexpected(e.clone().clone())
                     });
-                    println!("ASD {:?} {is_ending_token:?}", self.current);
                     match is_ending_token {
                         Some(_) => {
                             self.advance();
-                            println!("BREAK;");
                             return result;
                         },
                         None => {
@@ -163,11 +162,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_var_name_and_val(
+    fn parse_var_name_and_type(
         &mut self, start: usize, end: usize
-    ) -> Result<(
-        Spanned<String>, Spanned<String>, Option<Spanned<Expr>>
-        ), AstNode>
+    ) -> Result<(Spanned<String>, Spanned<String>), AstNode>
     {
         let name = match self.consume_ident() {
             Ok(n) => n,
@@ -178,25 +175,25 @@ impl<'a> Parser<'a> {
         };
         let name = Spanned::new(name.to_string(), start, end);
         let ty = if &Token::Colon == &**self.current {
-            self.advance();
+            self.advance(); // ':'
             let (start, end) = (self.current.start, self.current.len);
-            let ty = self.consume_ident().unwrap();
+            let ty = match self.consume_ident() {
+                Ok(t) => t,
+                Err(er) => {
+                    self.report_error(&er);
+                    return Err(AstNode::Stmt(Stmt::poison()))
+                }
+            };
             Spanned::new(ty.to_string(), start, end)
         } else { Spanned::new("_".to_string(), 0, 0) };
-        let expr = match self.consume(&Token::Equals) {
-            Ok(_) => {
-                Some(self.expr().unwrap())
-            },
-            Err(_) => None
-        };
-        Ok((name, ty, expr))
+        Ok((name, ty))
     }
 
     fn varless_var_creation(&mut self) -> AstNode {
         let (start, end) = (self.current.start, self.current.len);
         let mut mutable = false;
         self.if_current_advance_and(&Token::Mut, || mutable = true);
-        let (name, ty, expr) = match self.parse_var_name_and_val(start, end) {
+        let (name, ty) = match self.parse_var_name_and_type(start, end) {
             Ok(a) => a,
             Err(er) => {
                 return er;
@@ -207,7 +204,7 @@ impl<'a> Parser<'a> {
                 is_mut: mutable,
                 name, 
                 ty, 
-                value: expr,
+                value: None,
             }, 
             start, self.previous.start - start + self.previous.len
         );
@@ -226,11 +223,17 @@ impl<'a> Parser<'a> {
                 self.report_error(&er);
             }
         }
-        let (name, ty, expr) = match self.parse_var_name_and_val(start, end) {
+        let (name, ty) = match self.parse_var_name_and_type(start, end) {
             Ok(a) => a,
             Err(er) => {
                 return er;
             }
+        };
+        let expr = match self.consume(&Token::Equals) {
+            Ok(_) => {
+                Some(self.expr().unwrap())
+            },
+            Err(_) => None
         };
         let mut span = Spanned::new(
             Stmt::VarCreation { 
@@ -260,7 +263,7 @@ impl<'a> Parser<'a> {
             self.current.start - start + self.current.len
         ))
     }
-
+    
     fn if_stmt(&mut self) -> AstNode {
         let start = self.current.start;
         do_or_report_and_return!(self, self.consume(&Token::If));
@@ -311,9 +314,16 @@ impl<'a> Parser<'a> {
         };
         do_or_report_and!(self, self.consume(&Token::LeftParen) => {});
         let mut args = vec![];
-        while self.current.obj_ref() != &Token::RightParen {
+        loop {
+            // this happens with no args
+            if self.current.obj_ref() == &Token::RightParen {
+                self.advance();
+                break;
+            }
             if self.is_at_end() { break; }
-            args.push(self.varless_var_creation());
+            let var = self.varless_var_creation();
+            if var == AstNode::Stmt(Stmt::poison()) { self.advance(); }
+            args.push(var);
             match self.consume_one_of(&[Token::RightParen, Token::Comma]) {
                 Some(t) => if t == &Token::RightParen { break; },
                 None => {
@@ -325,15 +335,18 @@ impl<'a> Parser<'a> {
                 }
             }
         }
-        self.advance(); // ')'
         let ret_type = match self.consume_ident() {
-            Ok(r) => r,
-            Err(_) => "void",
+            Ok(r) => Spanned::new(r.to_string(), 
+                self.previous.start, self.previous.len),
+            Err(_) => {
+                let in_between_spot = self.previous.start + self.previous.len;
+                Spanned::new("void".to_string(), 
+                    in_between_spot, self.current.start - in_between_spot)
+            },
         };
         let body = self.block();
         self.functions.insert(
-            name.to_string(), dbg!(Func::new(
-                ret_type.to_string(), args, body) )
+            name.to_string(), Func::new(ret_type, args, body)
         );
     }
     
@@ -388,7 +401,10 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn call_from_expr_role(&mut self, role: &ExprRole, ast: &mut Ast) -> Option<()> {
+    fn call_from_expr_role(
+        &mut self, role: &ExprRole, ast: &mut Ast
+    ) -> Option<()> 
+    {
         match role {
             ExprRole::Binary => self.binary(ast),
             ExprRole::None => return None,

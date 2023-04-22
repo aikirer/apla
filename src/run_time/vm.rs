@@ -1,24 +1,38 @@
-use super::{bytecode::OpCode, stack::{Stack, StackVal}, error::RTError, scope::Scope};
-// use crate::binary_op;
+use std::collections::HashMap;
+
+use crate::call::Call;
+
+use super::{
+    bytecode::OpCode, 
+    stack::{Stack, StackVal}, 
+    error::RTError, 
+    scope::Scope
+};
 
 #[derive(Debug)]
-pub struct VM {
+pub struct VM<'a> {
     stack: Stack,
     scope: Scope,
+    callables: HashMap<String, &'a dyn Call>
 }
 
 // prefixed with Op
 use OpCode::*;
 
-impl VM {
-    pub fn new() -> Self {
+impl<'a> VM<'a> {
+    pub fn new(
+        callables: HashMap<String, &'a dyn Call>
+    ) -> Self 
+    {
+        dbg!(&callables);
         Self {
             stack: Stack::new(),
             scope: Scope::new(),
+            callables: callables
         }
     }
 
-    pub fn execute(&mut self, code: &[OpCode]) -> Result<(), RTError> {
+    pub fn execute(&mut self, code: &[OpCode]) -> Result<StackVal, RTError> {
         let mut at = 0;
         while let Some(opcode) = code.get(at) {
             match opcode {
@@ -59,7 +73,7 @@ impl VM {
             at += 1;
         }
         println!("{:?}\n{:?}", self.scope, self.stack.pop());
-        Ok(())
+        Ok(StackVal::Null)
     }
 
     fn bin_op(&mut self, kind: &OpCode) -> Result<(), RTError>{
@@ -80,12 +94,6 @@ impl VM {
             _ => panic!()
         });
         Ok(())
-    }
-}
-
-impl Default for VM {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

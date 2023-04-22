@@ -1,6 +1,6 @@
 use crate::expr_type::ExprType;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Variable {
     pub ty: ExprType,
     pub is_mut: bool,

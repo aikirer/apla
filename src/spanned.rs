@@ -33,6 +33,10 @@ impl<T> Spanned<T> {
     pub fn poison(&mut self) {
         self.poisoned = true;
     }
+
+    pub fn from_other_span<E>(obj: T, span: &Spanned<E>) -> Self {
+        Spanned::new(obj, span.start, span.len)
+    }
 }
 
 impl<T> Spanned<T>
@@ -41,6 +45,15 @@ where
 {
     pub fn cloned(&self) -> T {
         self.obj.clone()
+    }
+}
+
+impl<T> Clone for Spanned<T>
+where
+    T: Clone
+{
+    fn clone(&self) -> Self {
+        Self::new(self.obj.clone(), self.start, self.len)
     }
 }
 

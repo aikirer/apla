@@ -6,7 +6,7 @@ use super::variable::Variable;
 
 #[derive(Debug)]
 pub struct Scope {
-    scopes: Vec<SingleScope>
+    pub scopes: Vec<SingleScope>
 }
 
 impl Scope {

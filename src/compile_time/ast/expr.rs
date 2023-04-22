@@ -26,7 +26,7 @@ impl Display for Operator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expr {
     Int(i32), 
     Float(f32), 

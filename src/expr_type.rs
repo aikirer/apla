@@ -28,6 +28,7 @@ impl TryFrom<&str> for ExprType {
             "int" => Ok(Self::Int), 
             "float" => Ok(Self::Float), 
             "str" => Ok(Self::String),
+            "void" => Ok(Self::Null), // oh no
             "_" => Ok(Self::ToBeInferred),
             _ => Err(CTError::new(crate::compile_time::error::CTErrorKind::ExpectedType)),
         }

@@ -2,7 +2,7 @@ use crate::{spanned::Spanned};
 
 use super::{expr::Expr, AstNode};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Stmt {
     VarCreation {
         is_mut: bool,
