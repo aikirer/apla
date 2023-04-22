@@ -136,9 +136,6 @@ impl Expr {
     }
 
     pub fn is_place(&self) -> bool {
-        match self {
-            Self::Var(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Var(_))
     }
 }

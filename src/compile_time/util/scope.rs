@@ -34,7 +34,7 @@ impl Scope {
     {
         match self.scopes.iter().rev()
             .find_map(|v| { v.objects.iter()
-                .find(|(var_name, _)| &**var_name == name) })
+                .find(|(var_name, _)| **var_name == name) })
                 .map(|(_, val)| val) {
                     Some(val) => Ok(val),
                     None => Err(CTErrorKind::VarDoesntExist(name.to_string())),
@@ -47,7 +47,7 @@ impl Scope {
     {
         match self.scopes.iter_mut().rev()
             .find_map(|v| { v.objects.iter_mut()
-                .find(|(var_name, _)| &**var_name == name) })
+                .find(|(var_name, _)| **var_name == name) })
                 .map(|(_, val)| val) {
                     Some(val) => Ok(val),
                     None => Err(CTErrorKind::VarDoesntExist(name.to_string())),

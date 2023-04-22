@@ -80,7 +80,7 @@ impl<'a> Parser<'a> {
                 Ok(node) => node,
                 Err((er, node)) => {
                     let is_ending_token = end_at.iter().find(|e| {
-                        er.kind == CTErrorKind::Unexpected(e.clone().clone())
+                        er.kind == CTErrorKind::Unexpected((*e).clone())
                     });
                     match is_ending_token {
                         Some(_) => {
@@ -110,8 +110,7 @@ impl<'a> Parser<'a> {
     fn stmt(&mut self) -> Result<Option<AstNode>, (CTError, AstNode)> {
         match &**self.current {
             Token::Mut | Token::Var => {
-                let result = Ok(Some(self.var_creation()));
-                result
+                Ok(Some(self.var_creation()))
             },
             Token::LeftBrace => Ok(Some(self.block())),
             Token::If => Ok(Some(self.if_stmt())),
@@ -119,7 +118,7 @@ impl<'a> Parser<'a> {
                 self.func_dec();
                 Ok(None)
             }
-            t @ _ => {
+            t => {
                 let expr = match self.expr() {
                     Some(v) => {
                         do_or_report_and!(self,
@@ -179,7 +178,7 @@ impl<'a> Parser<'a> {
             }
         };
         let name = Spanned::new(name.to_string(), start, end);
-        let ty = if &Token::Colon == &**self.current {
+        let ty = if Token::Colon == **self.current {
             self.advance(); // ':'
             let (start, end) = (self.current.start, self.current.len);
             let ty = match self.consume_ident() {
@@ -299,9 +298,9 @@ impl<'a> Parser<'a> {
         AstNode::Stmt(
             Spanned::new(
                 Stmt::If { 
-                    condition: condition, 
-                    true_branch: true_branch, 
-                    false_branch: false_branch
+                    condition, 
+                    true_branch, 
+                    false_branch
                 },
                 start, self.current.start - start + self.current.len
             )
@@ -544,7 +543,7 @@ impl<'a> Parser<'a> {
                     self.report_error(
                         &Spanned::from_other_span(
                             CTError::new(CTErrorKind::ExpectedExpr),
-                            &self.current
+                            self.current
                         ));
                     Spanned::new(Expr::Poison, 0, 0)
                 }
@@ -561,8 +560,7 @@ impl<'a> Parser<'a> {
         ast.nodes.push(AstNode::Expr(
             Spanned::new(
                 dbg!(Expr::Call { 
-                    name: name, 
-                    args,
+                    name, args,
                 }), 
                 self.previous.start - start,
                 self.previous.start + self.previous.len - start

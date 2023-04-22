@@ -62,16 +62,15 @@ impl Display for CTErrorKind {
                 format!("Expected '{t}', found '{t2}'!"),
             Self::Unexpected(t) => 
                 format!("Unexpected '{t}'!"),
-            Self::ExpectedType => 
-                format!("Expected a type!"),
+            Self::ExpectedType => "Expected a type!".to_string(),
             Self::CantUseOpForTypes(op, t) => 
-                format!("Cannot use the operator '{}' for '{t}'!", op.to_string()),
+                format!("Cannot use the operator '{op}' for '{t}'!"),
             Self::MismatchedTypes(t1, t2) => 
                 format!("Mismatched types: '{t1}', '{t2}'!"),
             Self::CantNegateType(t) => 
                 format!("Type '{t}' cannot be negated!"),
             Self::ExpectedOperator => 
-                format!("Expected an operator here!"),
+                "Expected an operator here!".to_string(),
             Self::VarDoesntExist(n) => 
                 format!("Var '{n}' doesn't exist!"),
             Self::UninitVarUsed(n) => 

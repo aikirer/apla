@@ -34,10 +34,10 @@ impl<'a> Compiler<'a> {
             .collect();
         let bytecode = {
             let ctx = Ctx {
-                functions: functions,
+                functions,
             };
             let mut at  = 0;
-            for (_, func) in &ctx.functions {
+            for func in ctx.functions.values() {
                 if let Some(f) = func.as_parsed_func() {
                     f.code.replace(orig_functions[at].compile(&ctx));
                     at += 1;

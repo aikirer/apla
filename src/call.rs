@@ -11,14 +11,14 @@ where
 {
     fn get_arg_list(&self) -> Vec<&ExprType>;
     fn compile_call(
-        &self, node: &Vec<Spanned<Expr>>, ctx: &compile::Ctx
+        &self, node: &[Spanned<Expr>], ctx: &compile::Ctx
     ) -> Vec<OpCode>;
 
     fn resolve(
         &self, node: &Spanned<Expr>, resolver: &Resolver
     ) -> Result<(), Spanned<CTError>>;
 
-    fn as_parsed_func<'a>(&'a self) -> Option<&'a ParsedFunc>;
+    fn as_parsed_func(&self) -> Option<&ParsedFunc>;
 
     fn call(&self, vm: &mut VM) -> Result<StackVal, RTError>;
 }

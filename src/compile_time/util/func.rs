@@ -88,7 +88,7 @@ impl Call for ParsedFunc {
                             return Err(
                                 Spanned::from_other_span(CTError::new(
                                     CTErrorKind::MismatchedTypes(
-                                        expected_type.clone().clone(), t.clone()
+                                        (*expected_type).clone(), t.clone()
                                     )
                                 ), dbg!(&args[i]))
                             )
@@ -103,7 +103,7 @@ impl Call for ParsedFunc {
     }
 
     fn compile_call(
-        &self, nodes: &Vec<Spanned<Expr>>, ctx: &compile::Ctx
+        &self, nodes: &[Spanned<Expr>], ctx: &compile::Ctx
     ) -> Vec<OpCode> 
     {
         
@@ -130,7 +130,7 @@ impl Call for ParsedFunc {
         result
     }
 
-    fn as_parsed_func<'a>(&'a self) -> Option<&'a ParsedFunc> {
+    fn as_parsed_func(&self) -> Option<&ParsedFunc> {
         Some(self)
     }
 }

@@ -54,7 +54,7 @@ impl Optimize for Expr {
                             (Expr::Float(a), Expr::Float(b)) => 
                                 *self = Expr::Float(a + b),
                             (Expr::String(a), Expr::String(b)) => 
-                                *self = Expr::String(a.to_string() + &b),
+                                *self = Expr::String(a.to_string() + b),
                             _ => (),
                         }
                         

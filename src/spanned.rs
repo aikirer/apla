@@ -88,8 +88,4 @@ where
     fn eq(&self, other: &Self) -> bool {
         self.obj == other.obj
     }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
 }

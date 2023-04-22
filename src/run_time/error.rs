@@ -25,11 +25,11 @@ impl Display for RTError {
             Self::VarDoesntExist(n) => 
                 format!("Variable {n} doesn't exist!"),
             Self::ExpectedPlace => 
-                format!("Expected a place expression!"),
+                "Expected a place expression!".to_string(),
             Self::ExpectedBool => 
-                format!("Expected a boolean value!"),
+                "Expected a boolean value!".to_string(),
             Self::ExpectedCallable => 
-                format!("Expected a callable!"),
+                "Expected a callable!".to_string(),
         };
         write!(f, "{t}")
     }

@@ -25,7 +25,7 @@ impl StackVal {
     pub fn to_stack_val(&self) -> StackVal {
         match self {
             StackVal::Var(v) => v.borrow().to_stack_val(),
-            t @ _ => t.clone(),
+            t => t.clone(),
         }
     }
 

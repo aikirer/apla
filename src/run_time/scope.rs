@@ -29,7 +29,7 @@ impl Scope {
         match self.objects.iter()
             .rev()
             .find_map(|v| { v.iter()
-                .find(|(var_name, _)| &**var_name == name) })
+                .find(|(var_name, _)| **var_name == name) })
                 .map(|(_, val)| Rc::clone(val)) {
                     Some(val) => Ok(val),
                     None => Err(RTError::VarDoesntExist(name.to_string())),

@@ -28,7 +28,7 @@ impl<'a> VM<'a> {
         Self {
             stack: Stack::new(),
             scope: Scope::new(),
-            callables: callables
+            callables
         }
     }
 
@@ -71,8 +71,7 @@ impl<'a> VM<'a> {
                 },
 
                 OpCall(name) => {
-                    self.get_callable(&name)?.call(self)?;
-                    ()
+                    self.get_callable(name)?.call(self)?;
                 }
             }
             at += 1;

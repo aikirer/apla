@@ -34,7 +34,7 @@ impl<'a> Resolver<'a> {
             )
             .collect::<HashMap<_, _>>();
         // doing it here doesn't require borrowing self
-        for (_, (orig_func, parsed_func)) in &functions {
+        for (orig_func, parsed_func) in functions.values() {
             new_self.scope.add_scope();
             for arg in &parsed_func.args {
                 new_self.scope.add_var(arg.0, arg.1.clone());
@@ -68,7 +68,7 @@ impl<'a> Resolver<'a> {
                 AstNode::Stmt(s) => match s.obj_ref() {
                     Stmt::VarCreation { name, is_mut, ty, value } => {
                         let mut var = self.create_var(
-                            &s, *is_mut, name, ty, value
+                            s, *is_mut, name, ty, value
                         );
                         var.1.initialized = true;
                         result.push(var)
@@ -126,12 +126,11 @@ impl<'a> Resolver<'a> {
     pub fn resolve_node(&mut self, node: &AstNode) {
         match node {
             AstNode::Expr(e) => {
-                if let Err(er) = self.resolve_expr(&e) {
+                if let Err(er) = self.resolve_expr(e) {
                     self.report_error(&er);
                 };
-                ()
             },
-            AstNode::Stmt(s) => {self.resolve_stmt(&s);()},
+            AstNode::Stmt(s) => {self.resolve_stmt(s);},
         };
     }
 
@@ -159,8 +158,8 @@ impl<'a> Resolver<'a> {
                 Ok(var.ty.clone())
             },
             Expr::Binary { op, left, right } => {
-                let t1 = self.resolve_expr(&left)?;
-                let t2 = self.resolve_expr(&right)?;
+                let t1 = self.resolve_expr(left)?;
+                let t2 = self.resolve_expr(right)?;
                 let allowed_types = op.get_legal_types();
                 if !allowed_types.contains(&ExprType::Any) {    
                     if t1 != t2 {
@@ -187,7 +186,7 @@ impl<'a> Resolver<'a> {
                 match self.resolve_expr(expr)? {
                     t @ (ExprType::Int | ExprType::Float |
                     ExprType::Bool) =>  Ok(t),
-                    t @ _ => Err(make_error(CTErrorKind::CantNegateType(t), 
+                    t => Err(make_error(CTErrorKind::CantNegateType(t), 
                         expr.start, expr.len)),
                 }
             },
@@ -228,7 +227,7 @@ impl<'a> Resolver<'a> {
                     },
                 };
                 
-                match self.is_assignable(&left) {
+                match self.is_assignable(left) {
                     Ok(name) => {
                         let ty = {
                             let v = self.scope.get_var_mut(&name).unwrap();
@@ -255,7 +254,7 @@ impl<'a> Resolver<'a> {
             Stmt::Block { nodes } => {
                 self.scope.add_scope();
                 for node in nodes {
-                    self.resolve_node(&node);
+                    self.resolve_node(node);
                 }
                 self.scope.pop_scope();
             },
@@ -291,7 +290,7 @@ impl<'a> Resolver<'a> {
         let init = value.is_some();
         let var_type;
         if value.is_none() {
-            match ExprType::try_from(&ty as &str) {
+            match ExprType::try_from(ty as &str) {
                 Ok(t) => {
                     if t == ExprType::ToBeInferred {
                         self.report_error(&Spanned::new(CTError::new(
@@ -309,13 +308,13 @@ impl<'a> Resolver<'a> {
             }
         } else {
             let value = value.as_ref().unwrap();
-            match ExprType::try_from(&ty as &str) {
+            match ExprType::try_from(ty as &str) {
                 Ok(mut t) => {
                     match self.resolve_expr(value) {
                         Ok(t2) => {
                             if t == ExprType::ToBeInferred {
                                 t = t2;
-                            } else if &t != &t2 {
+                            } else if t != t2 {
                                 poisoned = true;
                                 self.report_error(&Spanned::new(CTError::new(
                                     CTErrorKind::MismatchedTypes(t.clone(), t2)), 

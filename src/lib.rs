@@ -23,10 +23,10 @@ pub fn compile(
     input: &str
 ) -> Result<(Vec<OpCode>, HashMap<String, ParsedFunc>), ()> 
 {
-    let mut scanner = Scanner::new(&input);
+    let mut scanner = Scanner::new(input);
     let tokens = crate::measure_time!(scanner.scan(), "scanning");
     println!("result: {tokens:?}");
-    let parser = Parser::new(tokens, &input);
+    let parser = Parser::new(tokens, input);
     let (mut ast, had_error, mut functions) = {
         let comp = crate::measure_time!(parser.parse(), "parsing");
         (comp.ast, comp.had_error, comp.functions)
@@ -37,7 +37,7 @@ pub fn compile(
     } 
     crate::measure_time!({
         ast.optimize();
-        for (_, code) in &mut functions {
+        for code in functions.values_mut() {
             code.node.optimize();
         }
     }, "optimizing");
