@@ -11,12 +11,14 @@ where
 {
     fn get_arg_list(&self) -> Vec<&ExprType>;
     fn compile_call(
-        &self, node: &[Spanned<Expr>], ctx: &compile::Ctx
+        &self, args: &[Spanned<Expr>], ctx: &compile::Ctx
     ) -> Vec<OpCode>;
 
     fn resolve(
         &self, node: &Spanned<Expr>, resolver: &Resolver
     ) -> Result<(), Spanned<CTError>>;
+
+    fn get_return_type(&self) -> ExprType;
 
     fn as_parsed_func(&self) -> Option<&ParsedFunc>;
 

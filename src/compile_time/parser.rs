@@ -529,7 +529,6 @@ impl<'a> Parser<'a> {
 
     fn func_call(&mut self, ast: &mut Ast, name: Spanned<String>) {
         let start = self.current.start;
-        println!("current: {:?}", self.current);
         do_or_report_and!(self, self.consume(&Token::LeftParen) => {});
         let mut args = vec![];
         while !self.is_at_end() {
@@ -559,9 +558,7 @@ impl<'a> Parser<'a> {
         }
         ast.nodes.push(AstNode::Expr(
             Spanned::new(
-                dbg!(Expr::Call { 
-                    name, args,
-                }), 
+                Expr::Call { name, args, }, 
                 self.previous.start - start,
                 self.previous.start + self.previous.len - start
             )

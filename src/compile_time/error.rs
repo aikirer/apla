@@ -26,6 +26,7 @@ pub enum CTErrorKind {
     ExpectedVarCreation,
     CantAssignToConst,
     TypeNotAnnotated,
+    ExpectedFuncCall,
 
     WrongArgCount(usize),
     FuncDoesntExist(String),
@@ -89,6 +90,8 @@ impl Display for CTErrorKind {
                 "The type needs to be annotated explicitly for this variable!".to_string(),
             Self::WrongArgCount(count) =>
                 format!("This function takes {count} arguments!"),
+            Self::ExpectedFuncCall =>
+                "Expected a function call!".to_string(),
             Self::FuncDoesntExist(name) =>
                 format!("Function '{name}' doesn't exist!"),
             Self::Poisoned => "poisoned".to_string(),
@@ -98,24 +101,19 @@ impl Display for CTErrorKind {
 
 pub fn report_error(error: &Spanned<CTError>, text: &str) {
     print!(" | [error] {}", **error);
+    // that doesn't look very good
     let mut at_char = error.start;
-    let mut at_line = 1;
-    let mut lines = text.lines().peekable();
-    let mut curr_line = lines.next().unwrap();
-    let mut len = curr_line.len();
-    loop {
-        if at_char <= len { break; }
-        at_char -= len;
-        at_line += 1;
-        match lines.peek() {
-            Some(l) => if l.len() > at_char { break; }
-            None => break,
-        };
-        curr_line = lines.next().unwrap();
-        len = curr_line.len();
-    };
-    println!(" [line {at_line}]");
-    let line = curr_line;
+    let mut at_char_on_new_line = at_char;
+    let at_line = text[..at_char].chars().filter(|c| {
+        at_char -= 1;
+        if *c == '\n' {
+            at_char_on_new_line = at_char;
+            true
+        } else { false }
+    }).count();
+    let at_char = at_char_on_new_line;
+    let line = text.lines().nth(at_line).unwrap();
+    println!(" [line {}]", at_line + 1);
     let prev_len = line.len() - 1;
     let line = line.trim_start();
     let at_char = at_char - (prev_len - (line.len() - 1));

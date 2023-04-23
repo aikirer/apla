@@ -1,4 +1,4 @@
-use std::{ops::{Add, Sub, Mul, Rem, Neg, Div}, rc::Rc, cell::RefCell};
+use std::{ops::{Add, Sub, Mul, Rem, Neg, Div}, rc::Rc, cell::RefCell, fmt::Display};
 
 use crate::expr_type::ExprType;
 
@@ -34,6 +34,19 @@ impl StackVal {
             Self::Bool(b) => Ok(*b),
             _ => Err(RTError::ExpectedBool),
         }
+    }
+}
+
+impl Display for StackVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            StackVal::Int(i) => i.to_string(),
+            StackVal::Float(f) => f.to_string(),
+            StackVal::String(s) => s.to_string(),
+            StackVal::Bool(b) => b.to_string(),
+            StackVal::Var(v) => v.borrow().to_string(),
+            StackVal::Null => "void".to_string(),
+        })
     }
 }
 

@@ -3,7 +3,7 @@ use crate::spanned::Spanned;
 pub mod expr;
 pub mod stmt;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum AstNode {
     Expr(Spanned<expr::Expr>),
     Stmt(Spanned<stmt::Stmt>),

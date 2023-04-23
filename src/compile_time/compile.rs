@@ -4,8 +4,9 @@ use crate::{run_time::bytecode::OpCode, call::Call};
 
 pub type Output = Vec<OpCode>;
 
+#[derive(Debug)]
 pub struct Ctx<'a> {
-    pub functions: HashMap<String, &'a mut dyn Call>
+    pub functions: &'a HashMap<String, Box<dyn Call>>
 }
 
 pub trait Compile {

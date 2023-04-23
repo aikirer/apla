@@ -14,7 +14,7 @@ use crate::{
 
 use super::variable::Variable;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Func {
     pub name: String,
     pub return_type: Spanned<String>,
@@ -34,12 +34,13 @@ impl Func {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedFunc {
     pub name: String,
     pub return_type: ExprType,
     pub args: HashMap<String, Variable>,
     pub code: RefCell<Vec<OpCode>>,
+    pub orig_node: AstNode,
 }
 
 
@@ -47,11 +48,13 @@ impl ParsedFunc {
     pub fn new(
         name: String,
         return_type: ExprType, args: HashMap<String, Variable>,
+        node: AstNode,
     ) -> Self {
         Self {
             name,
             return_type, args, 
-            code: RefCell::new(vec![])
+            code: RefCell::new(vec![]),
+            orig_node: node,
         }
     }
 }
@@ -132,6 +135,10 @@ impl Call for ParsedFunc {
 
     fn as_parsed_func(&self) -> Option<&ParsedFunc> {
         Some(self)
+    }
+
+    fn get_return_type(&self) -> ExprType {
+        self.return_type.clone()
     }
 }
 

@@ -24,7 +24,6 @@ impl<'a> VM<'a> {
         callables: HashMap<String, &'a dyn Call>
     ) -> Self 
     {
-        dbg!(&callables);
         Self {
             stack: Stack::new(),
             scope: Scope::new(),
@@ -76,7 +75,6 @@ impl<'a> VM<'a> {
             }
             at += 1;
         }
-        println!("{:?}\n{:?}", self.scope, self.stack.pop());
         Ok(StackVal::Null)
     }
 

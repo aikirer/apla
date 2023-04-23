@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use crate::{spanned::Spanned, expr_type::ExprType, call::Call};
+use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std};
 
 use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
 
-pub type FunctionBundle<'a> = (&'a Func, ParsedFunc);
+pub type FunctionBundle = (Func, ParsedFunc);
 
 pub struct Resolver<'a> {
     ast: &'a Ast,
-    functions: HashMap<String, FunctionBundle<'a>>,
+    callables: HashMap<String, Box<dyn Call>>,
     scope: Scope,
     text: &'a str,
     had_error: bool,
@@ -16,45 +16,43 @@ pub struct Resolver<'a> {
 
 
 impl<'a> Resolver<'a> {
-    pub fn new(
-        ast: &'a Ast, text: &'a str, functions: &'a HashMap<String, Func>
-    ) -> Self 
+    pub fn resolve(
+        ast: &'a Ast, text: &'a str, functions: &'a HashMap<String, Func>,
+        apla_std: Std,
+    ) ->  Result<HashMap<String, Box<dyn Call>>, ()>
     {
-        let mut new_self =  Self {
+        let mut callables = HashMap::new();
+        callables.insert("std".to_string(), Box::new(apla_std) as Box<dyn Call>);
+        let mut new_self = Self {
             ast,
             scope: Scope::new(),
-            functions: HashMap::new(),
+            callables: callables,
             text,
             had_error: false,
         };
         let functions = functions
-            .iter()
+            .into_iter()
             .map(|(name, func)| 
-                (name.to_string(), (func, new_self.parse_func(func)))
+                (name.to_string(), (func.clone(), new_self.parse_func(func)))
             )
             .collect::<HashMap<_, _>>();
-        // doing it here doesn't require borrowing self
-        for (orig_func, parsed_func) in functions.values() {
+        for (name, (orig_func, parsed_func)) in functions {
             new_self.scope.add_scope();
             for arg in &parsed_func.args {
                 new_self.scope.add_var(arg.0, arg.1.clone());
             }
             new_self.resolve_node(&orig_func.node);
             new_self.scope.pop_scope();
+            new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
+        };
+        // doing it here doesn't require borrowing self
+        // resolving
+        for node in &new_self.ast.nodes {
+            new_self.resolve_node(node);
         }
-        new_self.functions = functions;
-        new_self
-    }
-
-    pub fn resolve(mut self) -> Result<HashMap<String, FunctionBundle<'a>>, ()> {
-
-        for node in &self.ast.nodes {
-            self.resolve_node(node);
-        }
-        println!("VARIABLES: {:?}", self.scope);
-        match self.had_error {
+        match new_self.had_error {
             true => Err(()),
-            false => Ok(self.functions),
+            false => Ok(new_self.callables),
         }
     }
 
@@ -120,7 +118,7 @@ impl<'a> Resolver<'a> {
                 ExprType::Null
             },
         };
-        ParsedFunc::new(func.name.to_string(), ret_type, args)
+        ParsedFunc::new(func.name.to_string(), ret_type, args, func.node.clone())
     }
 
     pub fn resolve_node(&mut self, node: &AstNode) {
@@ -191,10 +189,10 @@ impl<'a> Resolver<'a> {
                 }
             },
             Expr::Call { name, args: _ } => {
-                match self.functions.get(&name.to_string()) {
+                match self.get_callable(&name) {
                     Some(f) => {
-                        f.1.resolve(expr, self)?;
-                        Ok(f.1.return_type.clone())
+                        f.resolve(expr, self)?;
+                        Ok(f.get_return_type())
                     }
                     None => Err(
                             Spanned::from_other_span(
@@ -374,6 +372,10 @@ impl<'a> Resolver<'a> {
     pub fn report_error(&mut self, error: &Spanned<CTError>) {
         self.had_error = true;
         report_error(error, self.text);
+    }
+
+    fn get_callable(&self, name: &str) -> Option<&Box<dyn Call>> {
+        self.callables.get(name)
     }
 }
 

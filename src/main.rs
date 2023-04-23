@@ -1,5 +1,3 @@
-// result<_, ()> is sometimes fine for me
-#![allow(clippy::result_unit_err)] 
 use std::env::args;
 
 fn main() {

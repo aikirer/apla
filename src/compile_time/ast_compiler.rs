@@ -6,51 +6,47 @@ use super::ast::stmt::Stmt;
 use super::ast::{Ast, expr::Expr, AstNode};
 
 use super::compile::{self, Compile, Ctx};
-use super::resolver::FunctionBundle;
-use super::util::func::{Func, ParsedFunc};
+use super::util::func::{Func};
 
 pub struct Compiler<'a> {
     pub ast: &'a Ast,
-    pub functions: HashMap<String, FunctionBundle<'a>>
+    pub functions: HashMap<String, Box<dyn Call>>
 }
 
 impl<'a> Compiler<'a> {
     pub fn new(
         ast: &'a Ast, 
-        functions: HashMap<String, FunctionBundle<'a>>
+        functions: HashMap<String, Box<dyn Call>>
     ) -> Self 
     {
         Self { ast, functions }
     }
 
-    pub fn compile(mut self) -> (compile::Output, HashMap<String, ParsedFunc>) 
+    pub fn compile(self) -> (compile::Output, HashMap<String, Box<dyn Call>>) 
     {
-        let orig_functions = self.functions.iter()
-            .map(|(_, (orig, _))| &orig.node)
-            .collect::<Vec<_>>();
-        let functions: HashMap<String, &mut dyn Call> = self.functions
-            .iter_mut()
-            .map(|(name, (_, func))| (name.clone(), func as &mut dyn Call))
-            .collect();
+        // let (orig_functions, functions): (Vec<_>, HashMap<_, _>) = 
+        //         self.functions.iter_mut()
+        //     .map(|(name, (orig, parsed))| 
+        //             (
+        //                 &orig.node, 
+        //                 (name.to_string(), parsed as &mut dyn Call)
+        //             )
+        //         ) 
+        //     .unzip();  
+        
         let bytecode = {
             let ctx = Ctx {
-                functions,
+                functions: &self.functions,
             };
-            let mut at  = 0;
-            for func in ctx.functions.values() {
+            for (_, func) in ctx.functions {
                 if let Some(f) = func.as_parsed_func() {
-                    f.code.replace(orig_functions[at].compile(&ctx));
-                    at += 1;
+                    f.code.replace(f.orig_node.compile(&ctx));
                 }
             }
             self.ast.compile(&ctx)
         };
-        let functions = self.functions
-            .into_iter()
-            .map(|(name, (_, parsed))| (name, parsed))
-            .collect();
 
-        (bytecode, functions)
+        (bytecode, self.functions)
     }
 }
 

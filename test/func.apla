@@ -1,9 +1,12 @@
 func f(x: int) {
-    var y = 95;
+    if (x % 2 == 0) std(print(x));
 }
 
 f(25);
+f(34);
 var x = 'asd';
 {
     var y = 12;
 }
+std(print(x));
+std(print(2 + 2 + 2.12));
