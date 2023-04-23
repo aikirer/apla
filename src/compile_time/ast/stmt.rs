@@ -22,6 +22,9 @@ pub enum Stmt {
         true_branch: Box<AstNode>,
         false_branch: Option<Box<AstNode>>,
     },
+    Return {
+        val: Option<Spanned<Expr>>,
+    },
 
     Poison
 }

@@ -13,5 +13,7 @@ pub enum OpCode {
 
     OpCall(String),
 
+    OpReturn,
+
     OpNumber(i32), OpFloat(f32), OpString(String), OpBool(bool),
 }

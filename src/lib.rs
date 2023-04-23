@@ -56,7 +56,7 @@ pub fn run(input: String) -> Result<(), ()> {
         .map(|(name, callable)| (name.to_string(), &**callable))
         .collect();
     let mut vm = VM::new(functions);
-    if let Err(er) = vm.execute(&bytecode) {
+    if let Err(er) = crate::measure_time!(vm.execute(&bytecode), "executing") {
         println!("[RUNTIME ERROR] {er}");
     }
     Ok(())

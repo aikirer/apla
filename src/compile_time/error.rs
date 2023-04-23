@@ -104,6 +104,10 @@ pub fn report_error(error: &Spanned<CTError>, text: &str) {
     // that doesn't look very good
     let mut at_char = error.start;
     let mut at_char_on_new_line = at_char;
+    if at_char >= text.len() {
+        println!("\n | Couldn't find the token in the code! (Does the error occur at the end of the file?)");
+        return;
+    }
     let at_line = text[..at_char].chars().filter(|c| {
         at_char -= 1;
         if *c == '\n' {

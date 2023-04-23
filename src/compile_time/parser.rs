@@ -114,6 +114,7 @@ impl<'a> Parser<'a> {
             },
             Token::LeftBrace => Ok(Some(self.block())),
             Token::If => Ok(Some(self.if_stmt())),
+            Token::Return => Ok(Some(self.ret_stmt())),
             Token::Func => {
                 self.func_dec();
                 Ok(None)
@@ -121,9 +122,6 @@ impl<'a> Parser<'a> {
             t => {
                 let expr = match self.expr() {
                     Some(v) => {
-                        do_or_report_and!(self,
-                            self.consume(&Token::Semicolon)
-                            => {});
                         v
                     },
                     None => {
@@ -137,6 +135,9 @@ impl<'a> Parser<'a> {
                 if self.current.obj_ref() == &Token::Equals {
                     Ok(Some(AstNode::Stmt(self.assignment(expr))))
                 } else {
+                    do_or_report_and!(self,
+                        self.consume(&Token::Semicolon)
+                        => {});
                     Ok(Some(AstNode::Expr(expr)))
                 }
             }
@@ -303,6 +304,35 @@ impl<'a> Parser<'a> {
                     false_branch
                 },
                 start, self.current.start - start + self.current.len
+            )
+        )
+    }
+
+    fn ret_stmt(&mut self) -> AstNode {
+        let return_span = Spanned::from_other_span((), self.current);
+        do_or_report_and_return!(self, self.consume(&Token::Return));
+        let expr = match self.consume(&Token::Semicolon) {
+            Ok(_) => None,
+            Err(_) => match self.expr() {
+                Some(expr) => {
+                    do_or_report_and!(self,
+                        self.consume(&Token::Semicolon) => {});
+                    Some(expr)
+                },
+                None => {
+                    self.report_error(&Spanned::from_other_span(
+                        CTError::new(CTErrorKind::ExpectedExpr), 
+                        self.current,
+                    ));
+                    return AstNode::Expr(Spanned::new(Expr::Poison, 0, 0));
+                },
+            }
+        };
+        let len = self.previous.start + self.previous.len - return_span.start;
+        AstNode::Stmt(
+            Spanned::new(
+                Stmt::Return { val: expr },    
+                return_span.start, len
             )
         )
     }

@@ -70,8 +70,13 @@ impl<'a> VM<'a> {
                 },
 
                 OpCall(name) => {
-                    self.get_callable(name)?.call(self)?;
-                }
+                    match self.get_callable(name)?.call(self)? {
+                        StackVal::Null => (),
+                        other => self.stack.push(other),
+                    };
+                },
+
+                OpReturn => return self.stack.pop()
             }
             at += 1;
         }

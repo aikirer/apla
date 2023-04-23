@@ -24,16 +24,6 @@ impl<'a> Compiler<'a> {
 
     pub fn compile(self) -> (compile::Output, HashMap<String, Box<dyn Call>>) 
     {
-        // let (orig_functions, functions): (Vec<_>, HashMap<_, _>) = 
-        //         self.functions.iter_mut()
-        //     .map(|(name, (orig, parsed))| 
-        //             (
-        //                 &orig.node, 
-        //                 (name.to_string(), parsed as &mut dyn Call)
-        //             )
-        //         ) 
-        //     .unzip();  
-        
         let bytecode = {
             let ctx = Ctx {
                 functions: &self.functions,
@@ -148,6 +138,12 @@ impl Compile for Stmt {
                     out.extend(false_branch_code);
                 }
                 self.add(&mut out, OpPopScope);
+            },
+            Stmt::Return { val } => {
+                if let Some(expr) = val {
+                    out.extend(expr.compile(ctx));
+                }
+                out.push(OpCode::OpReturn);
             }
             Stmt::Poison => panic!(),
         }

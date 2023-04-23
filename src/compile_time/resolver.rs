@@ -12,6 +12,7 @@ pub struct Resolver<'a> {
     scope: Scope,
     text: &'a str,
     had_error: bool,
+    expected_return_type: ExprType,
 }
 
 
@@ -29,6 +30,7 @@ impl<'a> Resolver<'a> {
             callables: callables,
             text,
             had_error: false,
+            expected_return_type: ExprType::Null,
         };
         let functions = functions
             .into_iter()
@@ -41,9 +43,11 @@ impl<'a> Resolver<'a> {
             for arg in &parsed_func.args {
                 new_self.scope.add_var(arg.0, arg.1.clone());
             }
+            new_self.expected_return_type = parsed_func.return_type.clone();
+            new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
             new_self.resolve_node(&orig_func.node);
             new_self.scope.pop_scope();
-            new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
+            new_self.expected_return_type = ExprType::Null;
         };
         // doing it here doesn't require borrowing self
         // resolving
@@ -272,6 +276,30 @@ impl<'a> Resolver<'a> {
                 self.resolve_node(true_branch);
                 if let Some(node) = false_branch {
                     self.resolve_node(node);
+                }
+            },
+            Stmt::Return { val } => {
+                match val {
+                    Some(expr) => {
+                        match self.resolve_expr(expr) {
+                            Ok(ty) => if ty != self.expected_return_type {
+                                self.report_error(&Spanned::from_other_span(
+                                    CTError::new(CTErrorKind::MismatchedTypes(
+                                        self.expected_return_type.clone(), ty)),
+                                    expr
+                                ));
+                            },
+                            Err(er) => self.report_error(&er),
+                        }
+                    },
+                    None => {
+                        if self.expected_return_type != ExprType::Null {
+                            self.report_error(&Spanned::from_other_span(
+                                CTError::new(CTErrorKind::ExpectedExpr),
+                                stmt
+                            ));
+                        }
+                    }
                 }
             }
             Stmt::Poison => (),

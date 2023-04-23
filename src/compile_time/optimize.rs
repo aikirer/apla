@@ -122,6 +122,11 @@ impl Optimize for Stmt {
                 if let Some(br) = false_branch {
                     br.optimize();
                 }
+            },
+            Stmt::Return { val } => {
+                if let Some(expr) = val {
+                    expr.optimize();
+                }
             }
             Self::Poison => (),
         }
