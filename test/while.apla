@@ -1,0 +1,1 @@
+while (true) std(print(2));

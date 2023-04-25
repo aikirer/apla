@@ -25,6 +25,10 @@ pub enum Stmt {
     Return {
         val: Option<Spanned<Expr>>,
     },
+    While {
+        condition: Spanned<Expr>,
+        body: Box<AstNode>,
+    },
 
     Poison
 }

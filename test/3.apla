@@ -1,1 +1,4 @@
-std(print("a"))
+var x = 2;
+{
+    std(print(x));
+}

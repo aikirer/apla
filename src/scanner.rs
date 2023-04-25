@@ -113,11 +113,13 @@ impl<'a> Scanner<'a> {
         while self.current.is_whitespace() {
             self.advance()?;
         }
+
         if self.current == '#' {
+            println!("A COMMENT");
             while self.current != '\n' {
                 self.advance()?;
             }
-            self.advance();
+            self.skip_whitespace();
         }
         Some(())
     }

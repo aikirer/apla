@@ -18,7 +18,7 @@ where
         &self, node: &Spanned<Expr>, resolver: &Resolver
     ) -> Result<(), Spanned<CTError>>;
 
-    fn get_return_type(&self) -> ExprType;
+    fn get_return_type(&self, node: &Spanned<Expr>) -> ExprType;
 
     fn as_parsed_func(&self) -> Option<&ParsedFunc>;
 

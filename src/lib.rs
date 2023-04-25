@@ -20,7 +20,6 @@ pub fn run(input: String) -> Result<(), ()> {
     let apla_std = Std::new();
     let mut scanner = Scanner::new(&input);
     let tokens = crate::measure_time!(scanner.scan(), "scanning");
-    // println!("result: {tokens:?}");
     let parser = Parser::new(tokens, &input);
     let (mut ast, had_error, mut functions) = {
         let comp = crate::measure_time!(parser.parse(), "parsing");

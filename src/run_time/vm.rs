@@ -62,6 +62,9 @@ impl<'a> VM<'a> {
                     if !self.stack.pop()?.is_true()? {
                         // skip ahead of the else instr
                         at += if_len + 1;
+                        // avoid the additional increment at the end of the
+                        // loop
+                        continue;
                     }
                 },
                 OpElse(else_len) => {
@@ -74,6 +77,20 @@ impl<'a> VM<'a> {
                         StackVal::Null => (),
                         other => self.stack.push(other),
                     };
+                },  
+
+                OpLoop(loop_len) => {
+                    if !self.stack.pop()?.is_true()? {
+                        at += loop_len + 1;
+                    }
+                },
+                OpEndLoop(loop_len) => {
+                    // If the condition of the loop is false
+                    // the program skips AHEAD of this instruction,
+                    // so this instruction always meets to head back
+                    at -= loop_len;
+                    // Continue to avoid adding to "at" at the end of the loop
+                    continue; 
                 },
 
                 OpReturn => return self.stack.pop()

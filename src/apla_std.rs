@@ -12,7 +12,16 @@ impl Std {
     pub fn new() -> Self {
         let mut functions = HashMap::new();
         functions.insert("print".to_string(),
-            StdFunc::new(&[ExprType::Any], Box::new(print), ExprType::Null));
+            StdFunc::new(&[ExprType::Any], Box::new(Self::print), ExprType::Null));
+        functions.insert("read".to_string(),
+            StdFunc::new(&[], Box::new(Self::read), ExprType::String));
+        functions.insert("str_to_int".to_string(),
+            StdFunc::new(
+                &[ExprType::String], 
+                Box::new(Self::str_to_int), 
+                ExprType::Int
+            )
+        );
         Self {  
             functions,
             latest_call: RefCell::new("".to_string()),
@@ -25,11 +34,34 @@ impl Std {
             None => return Err(CTErrorKind::FuncDoesntExist(name.to_string())),
         }
     }
-}
 
-fn print(args: &[StackVal]) -> StackVal {
-    println!("{}", args[0]);
-    StackVal::Null
+    fn print(args: &[StackVal]) -> StackVal {
+        println!("{}", args[0]);
+        StackVal::Null
+    }
+
+    fn read(_args: &[StackVal]) -> StackVal {
+        // TODO: these functions need to return a Result<StackVal, RTError>
+        let mut buf = String::new();
+        match std::io::stdin().read_line(&mut buf) {
+            Ok(_) => (),
+            Err(er) => {
+                eprintln!("Couldn't read the input: {er}");
+                std::process::exit(1);
+            }
+        };
+        StackVal::String(buf.trim().to_string())
+    }
+
+    fn str_to_int(args: &[StackVal]) -> StackVal {
+        let arg = match &args[0] {
+            StackVal::String(s) => s,
+            _ => panic!(),
+        };
+        StackVal::Int(
+            arg.parse().expect("Invalid input!")
+        )
+    }
 }
 
 pub type FuncContainer = Box<dyn Fn(&[StackVal]) -> StackVal>;
@@ -160,7 +192,20 @@ impl Call for Std {
         Ok(func.call(&args))
     }
 
-    fn get_return_type(&self) -> ExprType {
-        self.get_func(&self.latest_call.borrow()).unwrap().return_type.clone()
+    fn get_return_type(&self, node: &Spanned<Expr>) -> ExprType {
+        match node.obj_ref() {
+            Expr::Call { name: _, args } => {
+                match &args[0].obj_ref() {
+                    &Expr::Call { name, args: _ } => {
+                        // You can unwrap here because you try to call
+                        // the func in the resolver before
+                        // calling this
+                        self.get_func(&name).unwrap().return_type.clone()
+                    },
+                    _ => panic!(),
+                }
+            },
+            _ => panic!(),
+        }
     }
 }

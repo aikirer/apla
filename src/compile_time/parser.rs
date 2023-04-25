@@ -115,8 +115,10 @@ impl<'a> Parser<'a> {
             Token::LeftBrace => Ok(Some(self.block())),
             Token::If => Ok(Some(self.if_stmt())),
             Token::Return => Ok(Some(self.ret_stmt())),
+            Token::While => Ok(Some(self.while_stmt())),
             Token::Func => {
                 self.func_dec();
+                // function doesn't have a node
                 Ok(None)
             }
             t => {
@@ -335,6 +337,32 @@ impl<'a> Parser<'a> {
                 return_span.start, len
             )
         )
+    }
+
+    fn while_stmt(&mut self) -> AstNode {
+        let start = self.current.start;
+        do_or_report_and_return!(self, self.consume(&Token::While));
+        do_or_report_and_return!(self, self.consume(&Token::LeftParen));
+        let condition = match self.expr() {
+            Some(expr) => expr,
+            None => {
+                self.report_error(
+                    &Spanned::new(
+                        CTError::new(CTErrorKind::ExpectedExpr),
+                        self.current.start, self.current.len
+                    )
+                );
+                return AstNode::Stmt(Stmt::poison())
+            }
+        };
+        do_or_report_and_return!(self, self.consume(&Token::RightParen));
+        let body = Box::new(self.safe_stmt());
+        AstNode::Stmt(Spanned::new(
+            Stmt::While { 
+                condition, body 
+            },
+            start, self.current.start - start + self.current.len
+        ))
     }
 
     fn func_dec(&mut self) {

@@ -1,6 +1,5 @@
 use std::{ops::{Deref, DerefMut}, fmt::Debug};
 
-#[derive(Debug)]
 pub struct Spanned<T> {
     pub obj: T,
     pub start: usize,
@@ -72,14 +71,14 @@ impl<T> DerefMut for Spanned<T> {
     }
 }
 
-// impl<T> Debug for Spanned<T> 
-// where
-//     T: Debug
-// {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
+impl<T> Debug for Spanned<T> 
+where
+    T: Debug
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.obj)
+    }
+}
 
 impl<T> PartialEq for Spanned<T> 
 where 

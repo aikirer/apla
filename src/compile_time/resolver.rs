@@ -196,7 +196,7 @@ impl<'a> Resolver<'a> {
                 match self.get_callable(&name) {
                     Some(f) => {
                         f.resolve(expr, self)?;
-                        Ok(f.get_return_type())
+                        Ok(f.get_return_type(expr))
                     }
                     None => Err(
                             Spanned::from_other_span(
@@ -301,6 +301,12 @@ impl<'a> Resolver<'a> {
                         }
                     }
                 }
+            },
+            Stmt::While { condition, body } => {
+                if let Err(er) = self.resolve_expr(condition) {
+                    self.report_error(&er);
+                }
+                self.resolve_node(&body);
             }
             Stmt::Poison => (),
         }  

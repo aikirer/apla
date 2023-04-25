@@ -1,5 +1,5 @@
-var x = 2;
-{
-    mut var x = "asd";
-    x = x + '2';
-}
+mut var input = std(str_to_int(std(read())));
+
+if (input % 2 == 0) input = input + 1;
+
+std(print(input));

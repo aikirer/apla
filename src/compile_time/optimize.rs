@@ -127,6 +127,10 @@ impl Optimize for Stmt {
                 if let Some(expr) = val {
                     expr.optimize();
                 }
+            },
+            Stmt::While { condition, body } => {
+                condition.optimize();
+                body.optimize();
             }
             Self::Poison => (),
         }

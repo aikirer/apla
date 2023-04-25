@@ -129,13 +129,17 @@ impl Compile for Stmt {
                 out.extend(condition.compile(ctx));
                 let true_branch_code = true_branch.compile(ctx);
                 let true_branch_len = true_branch_code.len();
-                self.add(&mut out, OpIf(true_branch_len));
-                out.extend(true_branch_code);
                 if let Some(branch) = false_branch {
                     let false_branch_code = branch.compile(ctx);
                     let false_branch_len = false_branch_code.len();
+                    // the + 1 comes from the else
+                    self.add(&mut out, OpIf(true_branch_len + 1));
+                    out.extend(true_branch_code);
                     self.add(&mut out, OpElse(false_branch_len));
                     out.extend(false_branch_code);
+                } else {   
+                    out.extend(true_branch_code);
+                    self.add(&mut out, OpIf(true_branch_len));
                 }
                 self.add(&mut out, OpPopScope);
             },
@@ -144,6 +148,17 @@ impl Compile for Stmt {
                     out.extend(expr.compile(ctx));
                 }
                 out.push(OpCode::OpReturn);
+            },
+            Stmt::While { condition, body } => {
+                let cond = condition.compile(ctx);
+                let body = body.compile(ctx);
+                let body_len = body.len();
+                let cond_len = cond.len();
+                out.extend(cond);
+                self.add(&mut out, OpLoop(body_len));
+                out.extend(body);
+                // 1 is OpLoop
+                self.add(&mut out, OpEndLoop(body_len + cond_len + 1));
             }
             Stmt::Poison => panic!(),
         }

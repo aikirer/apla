@@ -93,7 +93,7 @@ impl Call for ParsedFunc {
                                     CTErrorKind::MismatchedTypes(
                                         (*expected_type).clone(), t.clone()
                                     )
-                                ), dbg!(&args[i]))
+                                ), &args[i])
                             )
                         },
                         Err(er) => return Err(er.clone()),
@@ -137,7 +137,7 @@ impl Call for ParsedFunc {
         Some(self)
     }
 
-    fn get_return_type(&self) -> ExprType {
+    fn get_return_type(&self, _node: &Spanned<Expr>) -> ExprType {
         self.return_type.clone()
     }
 }

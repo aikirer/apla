@@ -1,5 +1,12 @@
-if (2 > 5) {
-    
+while (true) {
+    var input = std(str_to_int(std(read()))); # oh
+    mut var out: str;
+    if (input % 3 == 0) {
+        out = "% 3 = 0";
+    } else if (input % 2 == 0) {
+        out = "% 2 = 0";
+    } else {
+        out = "neither";
+    }
+    std(print(out));
 }
-
-if ()
