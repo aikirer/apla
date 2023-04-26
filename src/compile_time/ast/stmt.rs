@@ -29,6 +29,8 @@ pub enum Stmt {
         condition: Spanned<Expr>,
         body: Box<AstNode>,
     },
+    Break,
+    Continue,
 
     Poison
 }

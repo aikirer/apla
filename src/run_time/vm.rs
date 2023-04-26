@@ -19,6 +19,21 @@ pub struct VM<'a> {
 // prefixed with Op
 use OpCode::*;
 
+macro_rules! skip_until {
+    ($until: pat, $code: expr, $at: expr) => {
+        loop {
+            $at += 1;
+            let op = match $code.get($at) {
+                Some(o) => o,
+                None => panic!(),
+            };
+            if let $until = op {
+                break;
+            }
+        }
+    };
+}
+
 impl<'a> VM<'a> {
     pub fn new(
         callables: HashMap<String, &'a dyn Call>
@@ -91,6 +106,14 @@ impl<'a> VM<'a> {
                     at -= loop_len;
                     // Continue to avoid adding to "at" at the end of the loop
                     continue; 
+                },
+                OpBreak => skip_until!(OpEndLoop(_), code, at),
+                OpContinue => {
+                    skip_until!(OpEndLoop(_), code, at);
+                    // avoid one more increment to at which would break out of the
+                    // loop
+                    //println!("[LOG]: Hit continue");
+                    continue;
                 },
 
                 OpReturn => return self.stack.pop()

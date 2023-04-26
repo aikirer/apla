@@ -15,11 +15,21 @@ impl<T> Spanned<T> {
         }
     }
 
-    pub fn get_start_and_len(
-        o1: &Spanned<T>, o2: &Spanned<T>
+    pub fn new_poisoned(obj: T, start: usize, len: usize) -> Self {
+        let mut this = Self::new(obj, start, len);
+        this.poison();
+        this
+    }
+
+    pub fn get_start_and_len<E>(
+        o1: &Spanned<T>, o2: &Spanned<E>
     ) -> (usize, usize)
     {
-        (o1.start, (o2.start - o1.start) + o2.len)
+        if o1.poisoned || o2.poisoned {
+            (0, 0)
+        } else {
+            (o1.start, (o2.start - o1.start) + o2.len)
+        }
     }
 
     pub fn obj_ref(&self) -> &T {
@@ -36,6 +46,15 @@ impl<T> Spanned<T> {
 
     pub fn from_other_span<E>(obj: T, span: &Spanned<E>) -> Self {
         Spanned::new(obj, span.start, span.len)
+    }
+
+    pub fn just_span_data(&self) -> Spanned<()> {
+        Spanned {
+            obj: (),
+            start: self.start,
+            len: self.len,
+            poisoned: self.poisoned,
+        }
     }
 }
 

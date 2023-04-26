@@ -24,17 +24,17 @@ impl<'a> Scanner<'a> {
             if self.skip_whitespace().is_none() { break; }
             use Token as T;
             let token = match self.current {
-                '&' => self.token_if_next_else(vec![('&', T::And)], T::BitAnd),
-                '|' => self.token_if_next_else(vec![('|', T::Or)], T::BitOr),
-                '>' => self.token_if_next_else(vec![('>', T::BitRight), ('=', T::GreaterEqual)], T::Greater),
-                '<' => self.token_if_next_else(vec![('<', T::BitLeft), ('=', T::SmallerEqual)], T::Smaller),
-                '!' => self.token_if_next_else(vec![('=', T::NotEqual)], T::Bang),
-                '+' => self.token_if_next_else(vec![('+', T::PlusPlus)], T::Plus),
-                '-' => self.token_if_next_else(vec![('-', T::MinusMinus)], T::Minus),
-                '*' => T::Star,
-                '%' => T::Percent,
-                '/' => T::Slash,
-                '=' => self.token_if_next_else(vec![('=', T::EqualsEquals)], T::Equals),
+                '&' => self.token_if_next_else(&[('&', T::And)], T::BitAnd),
+                '|' => self.token_if_next_else(&[('|', T::Or)], T::BitOr),
+                '>' => self.token_if_next_else(&[('>', T::BitRight), ('=', T::GreaterEqual)], T::Greater),
+                '<' => self.token_if_next_else(&[('<', T::BitLeft), ('=', T::SmallerEqual)], T::Smaller),
+                '!' => self.token_if_next_else(&[('=', T::NotEqual)], T::Bang),
+                '+' => self.token_if_next_else(&[('+', T::PlusPlus), ('=', T::PlusEquals)], T::Plus),
+                '-' => self.token_if_next_else(&[('-', T::MinusMinus), ('=', T::Minus)], T::Minus),
+                '*' => self.token_if_next_else(&[('=', T::StarEquals)], T::Star),
+                '%' => self.token_if_next_else(&[('=', T::PercentEquals)], T::Percent),
+                '/' => self.token_if_next_else(&[('=', T::SlashEquals)], T::Slash),
+                '=' => self.token_if_next_else(&[('=', T::EqualsEquals)], T::Equals),
                 ':' => T::Colon,
                 '.' => T::Dot,
                 ',' => T::Comma,
@@ -98,13 +98,13 @@ impl<'a> Scanner<'a> {
     }
 
     fn token_if_next_else(
-        &mut self, wanted: Vec<(char, Token)>, on_false: Token
+        &mut self, wanted: &[(char, Token)], on_false: Token
     ) -> Token
     {
         let peek = self.peek();
         let result = wanted.into_iter()
             .find(|c| peek == Some(c.0))
-            .map(|c| c.1);
+            .map(|c| c.1.clone());
         if result.is_some() { self.advance(); }
         result.unwrap_or(on_false)
     }
@@ -115,7 +115,6 @@ impl<'a> Scanner<'a> {
         }
 
         if self.current == '#' {
-            println!("A COMMENT");
             while self.current != '\n' {
                 self.advance()?;
             }

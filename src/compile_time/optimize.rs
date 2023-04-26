@@ -131,8 +131,9 @@ impl Optimize for Stmt {
             Stmt::While { condition, body } => {
                 condition.optimize();
                 body.optimize();
-            }
-            Self::Poison => (),
+            },
+            
+            Self::Poison | Self::Break | Self::Continue => (),
         }
     }
 }

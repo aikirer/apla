@@ -138,8 +138,8 @@ impl Compile for Stmt {
                     self.add(&mut out, OpElse(false_branch_len));
                     out.extend(false_branch_code);
                 } else {   
-                    out.extend(true_branch_code);
                     self.add(&mut out, OpIf(true_branch_len));
+                    out.extend(true_branch_code);
                 }
                 self.add(&mut out, OpPopScope);
             },
@@ -159,7 +159,9 @@ impl Compile for Stmt {
                 out.extend(body);
                 // 1 is OpLoop
                 self.add(&mut out, OpEndLoop(body_len + cond_len + 1));
-            }
+            },
+            Stmt::Continue => self.add(&mut out, OpCode::OpContinue),
+            Stmt::Break => self.add(&mut out, OpCode::OpBreak),
             Stmt::Poison => panic!(),
         }
         out

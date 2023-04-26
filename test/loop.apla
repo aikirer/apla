@@ -1,0 +1,10 @@
+mut var x = 2;
+while (x < 12) {
+    if (x == 3) {
+        x += 1;
+        continue;
+    }
+    x += 1;
+    if (x == 7) break;
+    std(print(x));
+}

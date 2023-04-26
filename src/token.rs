@@ -5,7 +5,9 @@ pub enum Token {
     Plus, Minus, Slash, Percent, Star, Colon, Dot, Equals, EqualsEquals,
     BitAnd, BitOr, Greater, Smaller, NotEqual, Bang, Comma,
     LeftParen, LeftBracket, LeftBrace, RightBrace, RightBracket, 
-    RightParen, At, Semicolon,
+    RightParen, At, Semicolon, 
+
+    PlusEquals, MinusEquals, StarEquals, SlashEquals, PercentEquals,
 
     And, Or, BitRight, BitLeft, SmallerEqual, 
     GreaterEqual, PlusPlus, MinusMinus,
@@ -38,6 +40,11 @@ impl Display for Token {
             Token::NotEqual => "!=".to_string(),
             Token::Bang => "!".to_string(),
             Token::Comma => ",".to_string(),
+            Token::PlusEquals => "+=".to_string(),
+            Token::MinusEquals => "-=".to_string(),
+            Token::StarEquals => "*=".to_string(),
+            Token::SlashEquals => "/=".to_string(),
+            Token::PercentEquals => "%=".to_string(),
             Token::LeftParen => "(".to_string(),
             Token::LeftBracket => "[".to_string(),
             Token::LeftBrace => "{".to_string(),

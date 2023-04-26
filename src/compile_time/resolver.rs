@@ -308,7 +308,7 @@ impl<'a> Resolver<'a> {
                 }
                 self.resolve_node(&body);
             }
-            Stmt::Poison => (),
+            Stmt::Poison | Stmt::Break | Stmt::Continue => (),
         }  
     }
 
