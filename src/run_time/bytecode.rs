@@ -18,4 +18,6 @@ pub enum OpCode {
     OpNumber(i32), OpFloat(f32), OpString(String), OpBool(bool),
 
     OpLoop(usize), OpEndLoop(usize), OpBreak, OpContinue,
+
+    OpIndex,
 }

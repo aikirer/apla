@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use crate::{token::{Token, PrecedenceLevel}, run_time::bytecode::OpCode, expr_type::ExprType, spanned::Spanned};
 
+use super::AstNode;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operator {
     Plus, Minus, Slash, Star, Percent, Smaller, SmallerEqual,
@@ -44,6 +46,10 @@ pub enum Expr {
     Call {
         name: Spanned<String>,
         args: Vec<Spanned<Expr>>,
+    },
+    Index {
+        object: Box<AstNode>,
+        i: Box<Spanned<Expr>>
     },
 
     Poison
@@ -136,6 +142,13 @@ impl Expr {
     }
 
     pub fn is_place(&self) -> bool {
-        matches!(self, Self::Var(_))
+        match self {
+            Self::Var(_) => true,
+            Self::Index { object, i: _ } => match &**object {
+                AstNode::Expr(e) => e.is_place(),
+                AstNode::Stmt(_) => panic!(),
+            }
+            _ => false,
+        }
     }
 }

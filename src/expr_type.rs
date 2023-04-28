@@ -7,6 +7,15 @@ pub enum ExprType {
     Int, Float, String, Bool, ToBeInferred, Any, Null
 }
 
+impl ExprType {
+    pub fn is_indexable(&self) -> Option<ExprType> {
+        match self {
+            Self::String => Some(Self::String),
+            _ => None,
+        }
+    }
+}
+
 impl Display for ExprType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {

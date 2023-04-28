@@ -125,7 +125,7 @@ pub enum PrecedenceLevel {
 
 #[derive(Debug)]
 pub enum ExprRole {
-    Literal, Grouping, Binary, None, Unary, Object, 
+    Literal, Grouping, Binary, None, Unary, Object, Index,
 }
 
 #[derive(Debug)]
@@ -163,6 +163,7 @@ impl Token {
             Greater | Smaller | GreaterEqual | SmallerEqual |
             EqualsEquals | NotEqual => 
                 (Lvl::Comparison, ExprRole::None, ExprRole::Binary),
+            LeftBracket => (Lvl::Factor, ExprRole::None, ExprRole::Index),
             And => (Lvl::And, ExprRole::None, ExprRole::Binary),
             Or => (Lvl::Or, ExprRole::None, ExprRole::Binary),
             _ => (Lvl::None, Role::None, Role::None),

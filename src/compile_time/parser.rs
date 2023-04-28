@@ -533,6 +533,7 @@ impl<'a> Parser<'a> {
             ExprRole::Object => self.object(ast),
             ExprRole::Literal => self.literal(ast),
             ExprRole::Grouping => self.grouping(ast),
+            ExprRole::Index => self.index(ast),
         };
         Some(())
     }
@@ -639,9 +640,33 @@ impl<'a> Parser<'a> {
     }
 
     fn grouping(&mut self, ast: &mut Ast) {
-        self.advance();
+        do_or_report_and!(self, self.consume(&Token::LeftParen) => {});
         self.parse_prec(PrecedenceLevel::Assignment, ast);
-        self.advance(); // change to consume rparen
+        do_or_report_and!(self, self.consume(&Token::RightParen) => {});
+    }
+
+    fn index(&mut self, ast: &mut Ast) {
+        let start_span = self.current.just_span_data();
+        let object = match ast.nodes.pop() {
+            Some(obj) => obj,
+            None => {
+                self.report_error(&Spanned::from_other_span(
+                    CTError::new(CTErrorKind::ExpectedExpr), self.previous));
+                AstNode::Expr(Spanned::new_poisoned(Expr::Poison, 0, 0))
+            }
+        };
+        do_or_report_and!(self, self.consume(&Token::LeftBracket) => {});
+        let index = self.expr_or_reported();
+        do_or_report_and!(self, self.consume(&Token::RightBracket) => {});
+        let last_span = self.previous.just_span_data();
+        let (start, len) = Spanned::get_start_and_len(&start_span, &last_span);
+        ast.nodes.push(
+            AstNode::Expr(Spanned::new(
+                Expr::Index { 
+                    object: Box::new(object), 
+                    i: Box::new(index) 
+                }, start, len))
+        )
     }
 
     fn func_call(&mut self, ast: &mut Ast, name: Spanned<String>) {

@@ -15,6 +15,7 @@ pub enum CTErrorKind {
     CantNegateType(ExprType),
     VarDoesntExist(String),
     UninitVarUsed(String),
+    CantIndexType(ExprType),
     ExpectedOperator,
     ExpectedStmt,
     ExpectedExpr,
@@ -27,6 +28,7 @@ pub enum CTErrorKind {
     CantAssignToConst,
     TypeNotAnnotated,
     ExpectedFuncCall,
+    CantIndex,
 
     WrongArgCount(usize),
     FuncDoesntExist(String),
@@ -76,6 +78,8 @@ impl Display for CTErrorKind {
                 format!("Var '{n}' doesn't exist!"),
             Self::UninitVarUsed(n) => 
                 format!("var '{n}' cannot be used when uninitialized!"),
+            Self::CantIndexType(t) => 
+                format!("Type '{t}' cannot be indexed!"),
             Self::HadError => "Had an error!".to_string(), // tmp
             Self::ExpectedExpr => "Expected an expression!".to_string(),
             Self::ExpectedStmt => "Expected a statement!".to_string(),
@@ -94,6 +98,7 @@ impl Display for CTErrorKind {
                 "Expected a function call!".to_string(),
             Self::FuncDoesntExist(name) =>
                 format!("Function '{name}' doesn't exist!"),
+            Self::CantIndex => "Indexing is unstable!".to_string(),
             Self::Poisoned => "poisoned".to_string(),
         })
     }

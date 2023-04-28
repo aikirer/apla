@@ -138,7 +138,7 @@ impl<'a> Resolver<'a> {
 
     pub fn resolve_expr(&self, expr: &Spanned<Expr>) -> Result<ExprType, Spanned<CTError>> {
         if expr.poisoned { return Ok(ExprType::ToBeInferred) }
-        match &**expr {
+        match expr.obj_ref() {
             Expr::Int(_) => Ok(ExprType::Int),
             Expr::Float(_) => Ok(ExprType::Float),
             Expr::String(_) => Ok(ExprType::String),
@@ -205,7 +205,27 @@ impl<'a> Resolver<'a> {
                                 ), name)
                         ),
                 }
-            }
+            },
+            Expr::Index { object, i } => {
+                let object = match &**object {
+                    AstNode::Stmt(_) => panic!(),
+                    AstNode::Expr(e) => e,
+                };
+                let expr_type = self.resolve_expr(object)?;
+                let tp_from_index = match expr_type.is_indexable() {
+                    Some(tp) => tp,
+                    None => return Err(Spanned::from_other_span(
+                        CTError::new(CTErrorKind::CantIndexType(expr_type)), 
+                        object)),
+                };
+                let index_type = self.resolve_expr(&i)?;
+                if index_type != ExprType::Int {
+                    return Err(Spanned::from_other_span(
+                        CTError::new(CTErrorKind::MismatchedTypes(ExprType::Int, index_type)), 
+                    i))
+                }
+                return Ok(tp_from_index)
+            },
             Expr::Poison => Err(Spanned::new(
                 CTError::new(CTErrorKind::Poisoned), 0, 0
             )),
@@ -398,6 +418,13 @@ impl<'a> Resolver<'a> {
                     ));
                 }
             },
+            Expr::Index { object, i: _ } => {
+                let object = match object.as_ref() {
+                    AstNode::Expr(e) => e,
+                    _ => panic!(),
+                };
+                var_name = self.is_assignable(object)?;
+            }
             _ => unreachable!("not places"),
         }
         Ok(var_name)

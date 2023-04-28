@@ -7,7 +7,7 @@ use super::error::RTError;
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum StackVal {
     Int(i32), Float(f32), String(String), Bool(bool),
-    Var(Rc<RefCell<StackVal>>), Null,
+    Var(Rc<RefCell<StackVal>>), Slice(Box<StackVal>), Null,
 }
 
 impl StackVal {
@@ -18,6 +18,7 @@ impl StackVal {
             StackVal::String(_) => ExprType::String,
             StackVal::Bool(_) => ExprType::Bool,
             StackVal::Var(v) => v.borrow().to_expr_type(),
+            StackVal::Slice(v) => v.to_expr_type(),
             StackVal::Null => ExprType::ToBeInferred,
         }
     }
@@ -35,6 +36,27 @@ impl StackVal {
             _ => Err(RTError::ExpectedBool),
         }
     }
+
+    // pub fn get(&self, i: StackVal) -> StackVal {
+    //     let i = match i {
+    //         StackVal::Int(i) => i,
+    //         _ => panic!(),
+    //     };
+    //     let i = match TryInto::<usize>::try_into(i) {
+    //         Ok(a) => a,
+    //         Err(_) => panic!("Can't index with a value of {i}!"),
+    //     };
+    //     match self {
+    //         StackVal::String(s) => StackVal::Slice(Box::new(StackVal::String(
+    //             s.get(i..=i).unwrap().to_string()
+    //         ))),
+    //         StackVal::Var(v) => StackVal::Slice(Box::new(StackVal::Var(
+    //             Rc::new(RefCell::new(v.borrow())),
+    //         ))),
+    //         StackVal::Slice(s) => todo!(),
+    //         _ => panic!(),
+    //     }
+    // }
 }
 
 impl Display for StackVal {
@@ -45,6 +67,7 @@ impl Display for StackVal {
             StackVal::String(s) => s.to_string(),
             StackVal::Bool(b) => b.to_string(),
             StackVal::Var(v) => v.borrow().to_string(),
+            StackVal::Slice(s) => s.to_string(),
             StackVal::Null => "void".to_string(),
         })
     }

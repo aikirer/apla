@@ -94,6 +94,16 @@ impl Optimize for Expr {
                     _ => (),
                 }
             }
+            Expr::Call { name: _, args } => {
+                for arg in args {
+                    arg.optimize();
+                }
+            },
+            Expr::Index { object, i } => {
+                object.optimize();
+                i.optimize();
+            },
+            Expr::Poison => todo!(),
             _ => (),
         };
     }

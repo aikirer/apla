@@ -1,3 +1,7 @@
+func square(n: int) int {
+    return n * n;
+}
+
 mut var x = 2;
 while (x < 12) {
     if (x == 3) {
@@ -6,5 +10,5 @@ while (x < 12) {
     }
     x += 1;
     if (x == 7) break;
-    std(print(x));
+    std(print(square(x)));
 }

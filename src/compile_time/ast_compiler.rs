@@ -90,6 +90,11 @@ impl Compile for Expr {
                 out.extend(ctx.functions.get(name.obj_ref())
                     .unwrap()
                     .compile_call(args, ctx));
+            },
+            Expr::Index { object, i } => {
+                out.extend(object.compile(ctx));
+                out.extend(i.compile(ctx));
+                self.add(&mut out, OpCode::OpIndex);
             }
             Self::Poison => panic!(),
         }

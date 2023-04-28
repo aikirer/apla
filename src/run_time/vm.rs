@@ -116,6 +116,7 @@ impl<'a> VM<'a> {
                     continue;
                 },
 
+                OpIndex => todo!(),
                 OpReturn => return self.stack.pop()
             }
             at += 1;
