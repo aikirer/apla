@@ -6,7 +6,7 @@ pub type Output = Vec<OpCode>;
 
 #[derive(Debug)]
 pub struct Ctx<'a> {
-    pub functions: &'a HashMap<String, Box<dyn Call>>
+    pub callables: &'a HashMap<String, Box<dyn Call>>
 }
 
 pub trait Compile {

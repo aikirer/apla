@@ -16,6 +16,7 @@ pub enum CTErrorKind {
     VarDoesntExist(String),
     UninitVarUsed(String),
     CantIndexType(ExprType),
+    CantUseGet,
     ExpectedOperator,
     ExpectedStmt,
     ExpectedExpr,
@@ -26,6 +27,7 @@ pub enum CTErrorKind {
     ExpectedPlace,
     ExpectedVarCreation,
     CantAssignToConst,
+    CantAssignToThis,
     TypeNotAnnotated,
     ExpectedFuncCall,
     CantIndex,
@@ -80,6 +82,7 @@ impl Display for CTErrorKind {
                 format!("var '{n}' cannot be used when uninitialized!"),
             Self::CantIndexType(t) => 
                 format!("Type '{t}' cannot be indexed!"),
+            Self::CantUseGet => "Cannot use the '.' operator here!".to_string(),
             Self::HadError => "Had an error!".to_string(), // tmp
             Self::ExpectedExpr => "Expected an expression!".to_string(),
             Self::ExpectedStmt => "Expected a statement!".to_string(),
@@ -90,6 +93,8 @@ impl Display for CTErrorKind {
             Self::CantInferType => "Cannot infer the type!".to_string(),
             Self::CantAssignToConst => 
                 "Cannot assign to a constant variable!".to_string(),
+            Self::CantAssignToThis => 
+                "Cannot assign to this!".to_string(),
             Self::TypeNotAnnotated =>
                 "The type needs to be annotated explicitly for this variable!".to_string(),
             Self::WrongArgCount(count) =>

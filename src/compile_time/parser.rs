@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::{
     spanned::Spanned,
     token::{ExprRole, PrecedenceLevel, Token}, 
-    compile_time::util::func::Func,
+    compile_time::util::func::Func, class::Class,
 };
 
 use super::{
@@ -46,6 +46,7 @@ pub struct Parser<'a> {
     pub current: &'a SpanToken,
     pub previous: &'a SpanToken,
     pub functions: HashMap<String, Func>,
+    pub classes: HashMap<String, Class>,
     pub ast: Ast,
     pub txt: &'a str,
     pub had_error: bool,
@@ -60,6 +61,7 @@ impl<'a> Parser<'a> {
             previous: &tokens[0],
             ast: Ast::new(),
             functions: HashMap::new(),
+            classes: HashMap::new(),
             txt,
             had_error: false,
             at: 0,
@@ -119,8 +121,17 @@ impl<'a> Parser<'a> {
             Token::Continue => Ok(Some(self.continue_stmt())),
             Token::Break => Ok(Some(self.break_stmt())),
             Token::Func => {
-                self.func_dec();
+                // so hacky
+                let func = match self.func_dec() {
+                    Ok(f) => f,
+                    Err(_) => return Ok(None),
+                };
+                self.functions.insert(func.0, func.1);
                 // function doesn't have a node
+                Ok(None)
+            },
+            Token::Class => {
+                self.class_dec();
                 Ok(None)
             }
             t => {
@@ -395,13 +406,13 @@ impl<'a> Parser<'a> {
         AstNode::Stmt(Spanned::new(Stmt::Break, start, len))
     }
 
-    fn func_dec(&mut self) {
+    fn func_dec(&mut self) -> Result<(String, Func), ()>{
         do_or_report_and!(self, self.consume(&Token::Func) => {});
         let name = match self.consume_ident() {
             Ok(n) => n,
             Err(er) => {
                 self.report_error(&er);
-                return;
+                return Err(());
             },
         };
         do_or_report_and!(self, self.consume(&Token::LeftParen) => {});
@@ -437,9 +448,40 @@ impl<'a> Parser<'a> {
             },
         };
         let body = self.block();
-        self.functions.insert(
-            name.to_string(), Func::new(name.to_string(), ret_type, args, body)
-        );
+        Ok((name.to_string(), Func::new(name.to_string(), ret_type, args, body)))
+    }
+
+    fn class_dec(&mut self) {
+        do_or_report_and!(self, self.consume(&Token::Class) => {});
+        let name = match self.consume_ident() {
+            Ok(n) => n,
+            Err(er) => {
+                self.report_error(&er);
+                return;
+            }
+        };
+        do_or_report_and!(self, self.consume(&Token::LeftBrace) => {});
+        let mut class = Class::new(name.to_string());
+        loop {
+            if self.is_at_end() || self.current.obj_ref() == &Token::RightBrace {
+                break;
+            }
+            match self.current.obj_ref() {
+                Token::Var | Token::Mut => class.fields.push(self.var_creation()),
+                Token::Func => {
+                    let func = match self.func_dec() {
+                        Ok(f) => f,
+                        Err(_) => continue,
+                    };
+                    class.methods.insert(func.0, func.1);
+                }
+                _ => panic!(),
+            }
+        }
+        if !self.is_at_end() {
+            do_or_report_and!(self, self.consume(&Token::RightBrace) => {});
+        }
+        self.classes.insert(name.to_string(), class);
     }
 
     fn expr_or_reported(&mut self) -> Spanned<Expr> {
@@ -534,6 +576,7 @@ impl<'a> Parser<'a> {
             ExprRole::Literal => self.literal(ast),
             ExprRole::Grouping => self.grouping(ast),
             ExprRole::Index => self.index(ast),
+            ExprRole::Get => self.expr_get(ast),
         };
         Some(())
     }
@@ -667,6 +710,40 @@ impl<'a> Parser<'a> {
                     i: Box::new(index) 
                 }, start, len))
         )
+    }
+
+    fn expr_get(&mut self, ast: &mut Ast) {
+        let mut poisoned = false;
+        self.advance();
+        let left = ast.nodes.pop().unwrap();
+        let start;
+        self.parse_prec(PrecedenceLevel::Unary, ast);
+        let right = match ast.nodes.pop() {
+            Some(r) => r,
+            None => {
+                self.report_error(&Spanned::from_other_span(
+                    CTError::new(CTErrorKind::ExpectedExpr), self.current));
+                poisoned = true;
+                AstNode::Expr(Spanned::new(Expr::Poison, 0, 0))
+            },
+        };
+        let (left, right) = match (left, right) {
+            (AstNode::Expr(a), AstNode::Expr(b)) => {
+                start = a.just_span_data();
+                (a, b)
+            },
+            _ => panic!(),
+        };
+        let end = self.current.just_span_data();
+        let (start, end) = Spanned::get_start_and_len(&start, &end);
+        let mut span = Spanned::new(
+            Expr::Get {
+                left: Box::new(left),
+                right: Box::new(right),
+            }, start, end
+        );
+        if poisoned { span.poison(); }
+        ast.nodes.push(AstNode::Expr(span))
     }
 
     fn func_call(&mut self, ast: &mut Ast, name: Spanned<String>) {

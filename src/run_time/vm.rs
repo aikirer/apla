@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::call::Call;
 
@@ -117,7 +117,19 @@ impl<'a> VM<'a> {
                 },
 
                 OpIndex => todo!(),
-                OpReturn => return self.stack.pop()
+                OpGetField(name) => {
+                    let obj = self.stack.pop_object()?;
+                    self.stack.push(Rc::clone(
+                        obj.borrow().runtime_fields.get(name).unwrap()
+                    ));
+                }
+                OpGetMethod(name) => {
+                    self.stack.pop_object()?.borrow().methods
+                        .get(&name.to_string())
+                        .unwrap()
+                        .call(self)?;
+                    }
+                OpReturn => return self.stack.pop(),
             }
             at += 1;
         }

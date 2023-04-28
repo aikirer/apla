@@ -103,6 +103,10 @@ impl Optimize for Expr {
                 object.optimize();
                 i.optimize();
             },
+            Expr::Get { left, right } => {
+                left.optimize();
+                right.optimize();
+            }
             Expr::Poison => todo!(),
             _ => (),
         };

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std};
+use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std, class::{Class, ParsedClass}};
 
 use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
 
@@ -19,6 +19,7 @@ pub struct Resolver<'a> {
 impl<'a> Resolver<'a> {
     pub fn resolve(
         ast: &'a Ast, text: &'a str, functions: &'a HashMap<String, Func>,
+        classes: HashMap<String, Class>,
         apla_std: Std,
     ) ->  Result<HashMap<String, Box<dyn Call>>, ()>
     {
@@ -27,7 +28,7 @@ impl<'a> Resolver<'a> {
         let mut new_self = Self {
             ast,
             scope: Scope::new(),
-            callables: callables,
+            callables,
             text,
             had_error: false,
             expected_return_type: ExprType::Null,
@@ -49,15 +50,41 @@ impl<'a> Resolver<'a> {
             new_self.scope.pop_scope();
             new_self.expected_return_type = ExprType::Null;
         };
+
+        let parsed_classes = classes.into_iter()
+            .map(|(name, c)| (name, new_self.parse_class(c)))
+            .collect::<HashMap<_, _>>();
+        for (name, class) in parsed_classes {
+            for (_, method) in &class.methods {
+                new_self.expected_return_type = method.return_type.clone();
+                new_self.resolve_node(&method.orig_node);
+                new_self.expected_return_type = ExprType::Null;
+            }
+            new_self.callables.insert(name, Box::new(class) as Box<dyn Call>);
+        }
         // doing it here doesn't require borrowing self
-        // resolving
         for node in &new_self.ast.nodes {
             new_self.resolve_node(node);
         }
+
         match new_self.had_error {
             true => Err(()),
             false => Ok(new_self.callables),
         }
+    }
+
+    fn parse_class(&mut self, class: Class) -> ParsedClass {
+        let mut parsed_class = ParsedClass::new(class.name);
+        parsed_class.fields = class.fields
+            .into_iter()
+            .map(|node| self.create_var_from_node(&node))
+            .map(|(name, var)| (name.to_string(), var))
+            .collect();
+        parsed_class.methods = class.methods
+            .into_iter()
+            .map(|(name, method)| (name, self.parse_func(&method)))
+            .collect();
+        parsed_class
     }
 
     fn parse_func_args(
@@ -69,10 +96,10 @@ impl<'a> Resolver<'a> {
             match arg {
                 AstNode::Stmt(s) => match s.obj_ref() {
                     Stmt::VarCreation { name, is_mut, ty, value } => {
-                        let mut var = self.create_var(
+                        let var = self.create_var(
                             s, *is_mut, name, ty, value
                         );
-                        var.1.initialized = true;
+                        var.1.init();
                         result.push(var)
                     },
                     _ => {
@@ -150,7 +177,7 @@ impl<'a> Resolver<'a> {
                         return Err(make_error(kind, expr.start, expr.len))
                     }
                 };
-                if !var.initialized {
+                if !var.is_init() {
                     return Err(
                         make_error(
                             CTErrorKind::UninitVarUsed(n.to_string()), 
@@ -226,6 +253,39 @@ impl<'a> Resolver<'a> {
                 }
                 return Ok(tp_from_index)
             },
+            Expr::Get { left, right } => {
+                let left_span = left.just_span_data();
+                let left = self.resolve_expr(&left)?;
+                let obj = match left {
+                    ExprType::Class(a) => a,
+                    _ => {
+                        return Err(Spanned::from_other_span(
+                            CTError::new(CTErrorKind::CantUseGet), &left_span))
+                    }
+                };
+                match right.obj_ref() {
+                    Expr::Var(v) => {
+                        match obj.fields.get(v) {
+                            Some(v) => Ok(v.ty.clone()),
+                            None => Err(Spanned::from_other_span(
+                                CTError::new(CTErrorKind::VarDoesntExist(v.to_string())), 
+                                &right))
+                        }
+                    },
+                    Expr::Call { name, args: _ } => {
+                        match obj.methods.get(&name.to_string()) {
+                            Some(f) => {
+                                f.resolve(&right, self)?;
+                                Ok(f.get_return_type(&right))
+                            },
+                            None => Err(Spanned::from_other_span(
+                                CTError::new(CTErrorKind::FuncDoesntExist(name.to_string())), 
+                                &right)),
+                        }
+                    },
+                    _ => panic!(),
+                }
+            },
             Expr::Poison => Err(Spanned::new(
                 CTError::new(CTErrorKind::Poisoned), 0, 0
             )),
@@ -250,11 +310,10 @@ impl<'a> Resolver<'a> {
                 };
                 
                 match self.is_assignable(left) {
-                    Ok(name) => {
+                    Ok(var) => {
                         let ty = {
-                            let v = self.scope.get_var_mut(&name).unwrap();
-                            v.initialized = true;
-                            v.ty.clone()
+                            var.init();
+                            var.ty.clone()
                         };
                         if ty != ty1 {
                             self.report_error(&Spanned::new(
@@ -332,6 +391,17 @@ impl<'a> Resolver<'a> {
         }  
     }
 
+    pub fn create_var_from_node(&mut self, node: &AstNode) -> (Spanned<String>, Variable) {
+        match node {
+            AstNode::Stmt(s) => match s.obj_ref() {
+                Stmt::VarCreation { is_mut, name, ty, value } => 
+                    self.create_var(s, *is_mut, name, ty, value),
+                _ => panic!(),
+            }
+            AstNode::Expr(_) => panic!(),
+        }
+    }
+
     pub fn create_var(
         &mut self, stmt: &Spanned<Stmt>,
         is_mut: bool, name: &Spanned<String>,
@@ -394,40 +464,56 @@ impl<'a> Resolver<'a> {
         (name.clone(), var)
     }
 
-    fn is_assignable(&self, expr: &Spanned<Expr>) -> Result<String, Spanned<CTError>> {
+    fn is_assignable(&self, expr: &Spanned<Expr>) -> Result<&Variable, Spanned<CTError>> {
         if !expr.is_place() {
             return Err(Spanned::new(
                 CTError::new(CTErrorKind::ExpectedPlace),
                 expr.start, expr.len,
             ));
         }
-        let var_name;
         match expr.obj_ref() {
             Expr::Var(n) => {
-                var_name = n.to_string();
                 let var = match self.scope.get_var(n) {
                     Ok(var) => var,
                     Err(kind) => return Err(Spanned::new(
                         CTError::new(kind), expr.start, expr.len
                     )),
                 };
-                if !var.is_mut && var.initialized {
+                if !var.is_mut && var.is_init() {
                     return Err(Spanned::new(
                         CTError::new(CTErrorKind::CantAssignToConst),
                         expr.start, expr.len
                     ));
                 }
+                Ok(var)
             },
             Expr::Index { object, i: _ } => {
                 let object = match object.as_ref() {
                     AstNode::Expr(e) => e,
                     _ => panic!(),
                 };
-                var_name = self.is_assignable(object)?;
-            }
+                self.is_assignable(object)
+            },
+            Expr::Get { left, right } => {
+                let obj = match left.obj_ref() {
+                    Expr::Var(v) => match &self.scope.get_var(v).unwrap().ty {
+                        ExprType::Class(c) => c,
+                        _ => panic!(),
+                    }
+                    Expr::Get { left: _, right: _ } => todo!(),
+                    _ => panic!(),
+                };
+                match right.obj_ref() {
+                    Expr::Var(v) => Ok(obj.fields.get(v).unwrap()),
+                    Expr::Call { name: _, args: _ } => Err(
+                        Spanned::from_other_span(
+                            CTError::new(CTErrorKind::CantAssignToThis), right),
+                    ),
+                    _ => panic!(),
+                }
+            },
             _ => unreachable!("not places"),
         }
-        Ok(var_name)
     }
 
     pub fn report_error(&mut self, error: &Spanned<CTError>) {

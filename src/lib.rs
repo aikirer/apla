@@ -14,16 +14,18 @@ pub mod token;
 pub mod run_time;
 pub mod spanned;
 pub mod call;
+pub mod class;
 pub mod apla_std;
+pub mod get;
 
 pub fn run(input: String) -> Result<(), ()> {
     let apla_std = Std::new();
     let mut scanner = Scanner::new(&input);
     let tokens = crate::measure_time!(scanner.scan(), "scanning");
     let parser = Parser::new(tokens, &input);
-    let (mut ast, had_error, mut functions) = {
+    let (mut ast, had_error, mut functions, classes) = {
         let comp = crate::measure_time!(parser.parse(), "parsing");
-        (comp.ast, comp.had_error, comp.functions)
+        (comp.ast, comp.had_error, comp.functions, comp.classes)
     };
     if had_error {
         return Err(())
@@ -34,9 +36,9 @@ pub fn run(input: String) -> Result<(), ()> {
             code.node.optimize();
         }
     }, "optimizing");
-    let functions = crate::measure_time!(
+    let callables = crate::measure_time!(
         match Resolver::resolve(
-            &ast, &input, &functions, apla_std
+            &ast, &input, &functions, classes, apla_std
         ) 
         {
             Ok(functions) => functions,
@@ -46,13 +48,13 @@ pub fn run(input: String) -> Result<(), ()> {
         }, "resolving"
     );
     // println!("ast after optimizing: {ast:?}");
-    let (bytecode, functions) = {
-        let compiler = Compiler::new(&ast, functions);
+    let (bytecode, callables) = {
+        let compiler = Compiler::new(&ast, callables);
         crate::measure_time!(compiler.compile(), "compiling")
     };
     println!("generated code: {bytecode:?}");
-    let functions = functions.iter()
-        .map(|(name, callable)| (name.to_string(), &**callable))
+    let functions = callables.iter()
+        .map(|(name, callable)| (name.to_string(), callable.as_ref()))
         .collect();
     let mut vm = VM::new(functions);
     if let Err(er) = crate::measure_time!(vm.execute(&bytecode), "executing") {

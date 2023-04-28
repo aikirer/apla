@@ -10,33 +10,35 @@ use super::util::func::{Func};
 
 pub struct Compiler<'a> {
     pub ast: &'a Ast,
-    pub functions: HashMap<String, Box<dyn Call>>
+    pub callables: HashMap<String, Box<dyn Call>>
 }
 
 impl<'a> Compiler<'a> {
     pub fn new(
         ast: &'a Ast, 
-        functions: HashMap<String, Box<dyn Call>>
+        callables: HashMap<String, Box<dyn Call>>
     ) -> Self 
     {
-        Self { ast, functions }
+        Self { ast, callables }
     }
 
     pub fn compile(self) -> (compile::Output, HashMap<String, Box<dyn Call>>) 
     {
         let bytecode = {
             let ctx = Ctx {
-                functions: &self.functions,
+                callables: &self.callables,
             };
-            for (_, func) in ctx.functions {
-                if let Some(f) = func.as_parsed_func() {
-                    f.code.replace(f.orig_node.compile(&ctx));
-                }
+            for callable in ctx.callables.values() {
+                callable.compile_to_code(&ctx);
             }
+            // for class in self.classes.values() {
+            //     for method in class.methods.values() {
+            //         method.code.replace(method.orig_node.compile(&ctx));
+            //     }
+            // }
             self.ast.compile(&ctx)
         };
-
-        (bytecode, self.functions)
+        (bytecode, self.callables)
     }
 }
 
@@ -87,7 +89,7 @@ impl Compile for Expr {
                 self.add(&mut out, OpCode::OpNegate);
             },
             Expr::Call { name, args } => {
-                out.extend(ctx.functions.get(name.obj_ref())
+                out.extend(ctx.callables.get(name.obj_ref())
                     .unwrap()
                     .compile_call(args, ctx));
             },
@@ -95,7 +97,20 @@ impl Compile for Expr {
                 out.extend(object.compile(ctx));
                 out.extend(i.compile(ctx));
                 self.add(&mut out, OpCode::OpIndex);
-            }
+            },
+            Expr::Get { left, right } => {
+                out.extend(left.compile(ctx));
+                match right.obj_ref() {
+                    Expr::Var(v) => self.add(&mut out, OpGetField(v.to_string())),
+                    Expr::Call { name, args } => {
+                        out.extend(ctx.callables.get(name.obj_ref())
+                        .unwrap()
+                        .compile_call(args, ctx));
+                        self.add(&mut out, OpGetField(name.to_string()));
+                    }
+                    _ => todo!(),
+                }
+            },
             Self::Poison => panic!(),
         }
         out

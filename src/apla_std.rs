@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug, cell::RefCell};
 
-use crate::{expr_type::ExprType, run_time::{stack::StackVal, error::RTError, vm::VM, bytecode::OpCode}, call::Call, spanned::Spanned, compile_time::{ast::expr::Expr, resolver::Resolver, error::{CTError, CTErrorKind}, util::func::ParsedFunc, compile::{self, Compile}}};
+use crate::{expr_type::ExprType, run_time::{stack::StackVal, error::RTError, vm::VM, bytecode::OpCode}, call::Call, spanned::Spanned, compile_time::{ast::expr::Expr, resolver::Resolver, error::{CTError, CTErrorKind}, compile::{self, Compile}}};
 
 #[derive(Debug)]
 pub struct Std {
@@ -13,6 +13,8 @@ impl Std {
         let mut functions = HashMap::new();
         functions.insert("print".to_string(),
             StdFunc::new(&[ExprType::Any], Box::new(Self::print), ExprType::Null));
+        functions.insert("rust_dbg_print".to_string(),
+            StdFunc::new(&[ExprType::Any], Box::new(Self::rust_dbg_print), ExprType::Null));
         functions.insert("read".to_string(),
             StdFunc::new(&[], Box::new(Self::read), ExprType::String));
         functions.insert("str_to_int".to_string(),
@@ -37,6 +39,11 @@ impl Std {
 
     fn print(args: &[StackVal]) -> StackVal {
         println!("{}", args[0]);
+        StackVal::Null
+    }
+
+    fn rust_dbg_print(args: &[StackVal]) -> StackVal {
+        println!("{:?}", args[0]);
         StackVal::Null
     }
 
@@ -169,9 +176,7 @@ impl Call for Std {
         }
     }
 
-    fn as_parsed_func(&self) -> Option<&ParsedFunc> {
-        None
-    }
+    fn compile_to_code(&self, _ctx: &compile::Ctx) { }
 
     fn call(
         &self, vm: &mut VM
@@ -207,5 +212,9 @@ impl Call for Std {
             },
             _ => panic!(),
         }
+    }
+
+    fn as_obj(&self) -> Option<&crate::class::ParsedClass> {
+        None
     }
 }

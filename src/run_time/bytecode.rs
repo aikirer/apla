@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OpCode {
     OpAdd, OpSubtract, OpDivide, OpMultiply, OpModulo,
     OpNegate, OpSmaller, OpGreater, OpSmallerEqual, OpGreaterEqual,
@@ -19,5 +19,5 @@ pub enum OpCode {
 
     OpLoop(usize), OpEndLoop(usize), OpBreak, OpContinue,
 
-    OpIndex,
+    OpIndex, OpGetField(String), OpGetMethod(String),
 }

@@ -1,13 +1,24 @@
 use std::{ops::{Add, Sub, Mul, Rem, Neg, Div}, rc::Rc, cell::RefCell, fmt::Display};
 
-use crate::expr_type::ExprType;
+use crate::{expr_type::ExprType, class::Object};
 
 use super::error::RTError;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StackVal {
     Int(i32), Float(f32), String(String), Bool(bool),
     Var(Rc<RefCell<StackVal>>), Slice(Box<StackVal>), Null,
+    Object(Rc<RefCell<Object>>),
+}
+
+impl PartialOrd for StackVal {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (StackVal::Int(a), StackVal::Int(b)) => Some(a.cmp(b)),
+            (StackVal::Float(a), StackVal::Float(b)) => Some(a.total_cmp(b)),
+            _ => None,
+        }
+    }
 }
 
 impl StackVal {
@@ -17,15 +28,16 @@ impl StackVal {
             StackVal::Float(_) => ExprType::Float,
             StackVal::String(_) => ExprType::String,
             StackVal::Bool(_) => ExprType::Bool,
-            StackVal::Var(v) => v.borrow().to_expr_type(),
+            StackVal::Var(v) => v.as_ref().borrow().to_expr_type(),
             StackVal::Slice(v) => v.to_expr_type(),
+            StackVal::Object(_) => todo!(),
             StackVal::Null => ExprType::ToBeInferred,
         }
     }
 
     pub fn to_stack_val(&self) -> StackVal {
         match self {
-            StackVal::Var(v) => v.borrow().to_stack_val(),
+            StackVal::Var(v) => v.as_ref().borrow().to_stack_val(),
             t => t.clone(),
         }
     }
@@ -66,8 +78,9 @@ impl Display for StackVal {
             StackVal::Float(f) => f.to_string(),
             StackVal::String(s) => s.to_string(),
             StackVal::Bool(b) => b.to_string(),
-            StackVal::Var(v) => v.borrow().to_string(),
+            StackVal::Var(v) => v.as_ref().borrow().to_string(),
             StackVal::Slice(s) => s.to_string(),
+            StackVal::Object(_) => todo!(),
             StackVal::Null => "void".to_string(),
         })
     }
@@ -112,9 +125,21 @@ impl Stack {
     }
 
     pub fn pop_place(&mut self) -> Result<Rc<RefCell<StackVal>>, RTError> {
-        match self.normal_pop()? {
+        let pop = self.normal_pop()?;
+        match pop {
             StackVal::Var(v) => Ok(v),
             _ => Err(RTError::ExpectedPlace)
+        }
+    }
+
+    pub fn pop_object(&mut self) -> Result<Rc<RefCell<Object>>, RTError> {
+        match self.normal_pop()? {
+            StackVal::Var(o) => match &*o.as_ref().borrow() {
+                StackVal::Object(o) => Ok(Rc::clone(o)),
+                _ => panic!(),
+            }
+            StackVal::Object(o) => Ok(o),
+            _ => panic!(),
         }
     }
 }

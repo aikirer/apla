@@ -51,6 +51,10 @@ pub enum Expr {
         object: Box<AstNode>,
         i: Box<Spanned<Expr>>
     },
+    Get {
+        left: Box<Spanned<Expr>>,
+        right: Box<Spanned<Expr>>,
+    },
 
     Poison
 }
@@ -143,6 +147,7 @@ impl Expr {
 
     pub fn is_place(&self) -> bool {
         match self {
+            Self::Get { left: _, right } => right.is_place(),
             Self::Var(_) => true,
             Self::Index { object, i: _ } => match &**object {
                 AstNode::Expr(e) => e.is_place(),

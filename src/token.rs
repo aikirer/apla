@@ -126,6 +126,7 @@ pub enum PrecedenceLevel {
 #[derive(Debug)]
 pub enum ExprRole {
     Literal, Grouping, Binary, None, Unary, Object, Index,
+    Get,
 }
 
 #[derive(Debug)]
@@ -166,6 +167,7 @@ impl Token {
             LeftBracket => (Lvl::Factor, ExprRole::None, ExprRole::Index),
             And => (Lvl::And, ExprRole::None, ExprRole::Binary),
             Or => (Lvl::Or, ExprRole::None, ExprRole::Binary),
+            Dot => (Lvl::Factor, ExprRole::None, ExprRole::Get),
             _ => (Lvl::None, Role::None, Role::None),
         };
         TokenData::new(data.0, data.1, data.2)

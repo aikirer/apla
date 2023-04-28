@@ -34,7 +34,7 @@ impl Func {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParsedFunc {
     pub name: String,
     pub return_type: ExprType,
@@ -133,12 +133,16 @@ impl Call for ParsedFunc {
         result
     }
 
-    fn as_parsed_func(&self) -> Option<&ParsedFunc> {
-        Some(self)
+    fn compile_to_code(&self, ctx: &compile::Ctx) {
+        self.code.replace(self.orig_node.compile(&ctx));
     }
 
     fn get_return_type(&self, _node: &Spanned<Expr>) -> ExprType {
         self.return_type.clone()
+    }
+
+    fn as_obj(&self) -> Option<&crate::class::ParsedClass> {
+        None
     }
 }
 

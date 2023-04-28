@@ -1,10 +1,11 @@
 use std::fmt::Display;
 
-use crate::compile_time::error::CTError;
+use crate::{compile_time::error::CTError, class::ParsedClass};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprType {
-    Int, Float, String, Bool, ToBeInferred, Any, Null
+    Int, Float, String, Bool, ToBeInferred, Any, Null,
+    Class(ParsedClass),
 }
 
 impl ExprType {
@@ -26,6 +27,7 @@ impl Display for ExprType {
             ExprType::ToBeInferred => "not inferred",
             ExprType::Any => "any",
             ExprType::Null => "null",
+            ExprType::Class(_) => "class",
         })
     }
 }

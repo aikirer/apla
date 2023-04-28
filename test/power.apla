@@ -5,5 +5,3 @@ func square(n: int) int {
 var input = std(read());
 var input = std(str_to_int(input));
 std(print(square(input)));
-
-std(print(x));

@@ -1,0 +1,13 @@
+class A {
+    var x: int;
+
+    func square() int { 
+        return 2 * 2;
+    }
+}
+
+var a = A();
+a.x = 3;
+std(print(a.x));
+a.x = a.x * a.x;
+std(print(a.x));
