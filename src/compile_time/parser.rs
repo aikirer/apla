@@ -189,10 +189,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> Result<Spanned<String>, Spanned<CTError>> {
-        let pointer = if self.current.obj_ref() == &Token::Caret {
+        let (pointer, mut_pointer) = if self.current.obj_ref() == &Token::Caret {
             self.advance();
-            true
-        } else { false };
+            if self.current.obj_ref() == &Token::Mut {
+                self.advance();
+                (true, true)
+            } else { (true, false) }
+        } else { (false, false) };
         let (start, end) = (self.current.start, self.current.len);
         let mut ty = match self.consume_ident() {
             Ok(t) => t.to_string(),
@@ -205,7 +208,11 @@ impl<'a> Parser<'a> {
             }
         };
         if pointer {
-            ty = "^".to_string() + &ty;
+            if mut_pointer {
+                ty = "^mut ".to_string() + &ty;
+            } else {
+                ty = "^".to_string() + &ty;
+            }
         }
         Ok(Spanned::new(ty.to_string(), start, end))
     }
@@ -593,6 +600,7 @@ impl<'a> Parser<'a> {
             ExprRole::Index => self.index(ast),
             ExprRole::Get => self.expr_get(ast),
             ExprRole::GetPointer => self.get_pointer(ast),
+            ExprRole::Deref => self.deref(ast),
         };
         Some(())
     }
@@ -764,6 +772,10 @@ impl<'a> Parser<'a> {
 
     fn get_pointer(&mut self, ast: &mut Ast) {
         self.advance();
+        let is_mut = if self.current.obj_ref() == &Token::Mut {
+            self.advance();
+            true
+        } else { false };
         self.parse_prec(PrecedenceLevel::Unary, ast);
         let Some(node) = ast.nodes.pop() else {
             self.report_error(&Spanned::from_other_span(
@@ -772,7 +784,25 @@ impl<'a> Parser<'a> {
         };
         let (span_data, node) = match node {
             AstNode::Expr(e) => {
-                (e.just_span_data(), Expr::GetPointer { expr: Box::new(e) })
+                (e.just_span_data(), dbg!(Expr::MakePointer { expr: Box::new(e), is_mut }))
+            },
+            _ => panic!(),
+        };
+        ast.nodes.push(AstNode::Expr(Spanned::from_other_span(
+            node, &span_data)));
+    }
+
+    fn deref(&mut self, ast: &mut Ast) {
+        self.advance();
+        self.parse_prec(PrecedenceLevel::Unary, ast);
+        let Some(node) = ast.nodes.pop() else {
+            self.report_error(&Spanned::from_other_span(
+                CTError::new(CTErrorKind::ExpectedExpr), self.current));
+            return;
+        };
+        let (span_data, node) = match node {
+            AstNode::Expr(e) => {
+                (e.just_span_data(), dbg!(Expr::Deref { expr: Box::new(e) }))
             },
             _ => panic!(),
         };

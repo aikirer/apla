@@ -31,6 +31,7 @@ pub enum CTErrorKind {
     TypeNotAnnotated,
     ExpectedFuncCall,
     CantIndex,
+    CantDeref,
 
     WrongArgCount(usize),
     FuncDoesntExist(String),
@@ -103,6 +104,8 @@ impl Display for CTErrorKind {
                 "Expected a function call!".to_string(),
             Self::FuncDoesntExist(name) =>
                 format!("Function '{name}' doesn't exist!"),
+            Self::CantDeref =>
+                format!("This cannot be dereferenced!"),
             Self::CantIndex => "Indexing is unstable!".to_string(),
             Self::Poisoned => "poisoned".to_string(),
         })

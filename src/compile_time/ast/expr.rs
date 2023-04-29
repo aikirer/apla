@@ -55,7 +55,11 @@ pub enum Expr {
         left: Box<Spanned<Expr>>,
         right: Box<Spanned<Expr>>,
     },
-    GetPointer {
+    MakePointer {
+        expr: Box<Spanned<Expr>>,
+        is_mut: bool,
+    },
+    Deref {
         expr: Box<Spanned<Expr>>,
     },
 
@@ -145,18 +149,6 @@ impl Expr {
             op, 
             left, 
             right 
-        }
-    }
-
-    pub fn is_place(&self) -> bool {
-        match self {
-            Self::Get { left: _, right } => right.is_place(),
-            Self::Var(_) => true,
-            Self::Index { object, i: _ } => match &**object {
-                AstNode::Expr(e) => e.is_place(),
-                AstNode::Stmt(_) => panic!(),
-            }
-            _ => false,
         }
     }
 }

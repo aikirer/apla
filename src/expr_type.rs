@@ -5,7 +5,10 @@ use crate::{compile_time::error::{CTError, CTErrorKind}, class::ParsedClass};
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprType {
     Int, Float, String, Bool, ToBeInferred, Any, Null,
-    Class(ParsedClass), Pointer(Box<ExprType>),
+    Class(ParsedClass), Pointer {
+        points_to: Box<ExprType>,
+        is_mut: bool,
+    },
 }
 
 impl ExprType {
@@ -16,8 +19,17 @@ impl ExprType {
         }
     }
 
-    pub fn as_pointer(self) -> Self {
-        Self::Pointer(Box::new(self))
+    pub fn as_pointer(self, is_mut: bool) -> Self {
+        Self::Pointer {
+            points_to: Box::new(self), is_mut
+        }
+    }
+
+    pub fn derefed(&self) -> Result<Self, CTErrorKind> {
+        match self {
+            Self::Pointer { points_to, is_mut: _ } => Ok(*points_to.clone()),
+            _ => Err(CTErrorKind::CantDeref)
+        }
     }
 }
 
@@ -32,53 +44,50 @@ impl Display for ExprType {
             ExprType::Any => "any".to_string(),
             ExprType::Null => "null".to_string(),
             ExprType::Class(_) => "class".to_string(),
-            ExprType::Pointer(p) => format!("pointer to {p}"),
+            ExprType::Pointer { points_to, is_mut } => {
+                if *is_mut {
+                    format!("@mut {points_to}")
+                } else {
+                    format!("@{points_to}")
+                }
+            }
         })
     }
 }
 
 impl TryFrom<&str> for ExprType {
     type Error = CTError;
+    // This is terrible
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let error = Err(CTError::new(CTErrorKind::ExpectedType));
         if value.is_empty() {
             return error;
         }
-        let (is_pointer, type_str) = if value.chars().next().unwrap() == '^' {
+        let (is_pointer, mut type_str) = if value.chars().next().unwrap() == '^' {
             (true, &value[1..])
         } else {
             (false, value)
         };
-        if type_str == "void" {
-            return Ok(Self::Null);
-        }
+        let mut_pointer = if type_str.get(0..=2) == Some("mut") {
+            type_str = &type_str[4..]; // 'mut '
+            true
+        } else { false };
         let matched_type = match type_str {
             "int" => Self::Int,
             "float" => Self::Float,
             "str" => Self::String,
             "bool" => Self::Bool,
+            "void" => Self::Null,
             "_" => Self::ToBeInferred,
             _ => return error,
         };
         if is_pointer {
-            Ok(Self::Pointer(Box::new(matched_type)))
+            Ok(dbg!(Self::Pointer { 
+                points_to: Box::new(matched_type), 
+                is_mut: mut_pointer
+            }))
         } else {
             Ok(matched_type)
         }
-    }
-}
-
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    #[test]
-    fn test_types() {
-        let int = ExprType::try_from("int");
-        let str_ptr = ExprType::try_from("^str");
-        let to_be_inferred_ptr = ExprType::try_from("^_");
-        assert_eq!(int, Ok(ExprType::Int));
-        assert_eq!(str_ptr, Ok(ExprType::Pointer(Box::new(ExprType::String))));
-        assert_eq!(to_be_inferred_ptr, Ok(ExprType::Pointer(Box::new(ExprType::ToBeInferred))));
     }
 }

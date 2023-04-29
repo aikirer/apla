@@ -289,7 +289,16 @@ impl<'a> Resolver<'a> {
             Expr::Poison => Err(Spanned::new(
                 CTError::new(CTErrorKind::Poisoned), 0, 0
             )),
-            Expr::GetPointer { expr } => Ok(self.resolve_expr(expr)?.as_pointer()),
+            Expr::Deref { expr } => {
+                match self.resolve_expr(expr)?.derefed() {
+                    Ok(v) => Ok(dbg!(v)),
+                    Err(er) => Err(Spanned::from_other_span(
+                        CTError::new(er), expr
+                    ))
+                }
+            }
+            Expr::MakePointer { expr, is_mut } => 
+                Ok(self.resolve_expr(expr)?.as_pointer(*is_mut)),
         }
     }
 
@@ -314,7 +323,13 @@ impl<'a> Resolver<'a> {
                     Ok(var) => {
                         let ty = {
                             var.init();
-                            var.ty.clone()
+                            match self.resolve_expr(&left) {
+                                Ok(t) => t,
+                                Err(er) => {
+                                    self.report_error(&er);
+                                    return;
+                                }
+                            }
                         };
                         if ty != ty1 {
                             self.report_error(&Spanned::new(
@@ -466,12 +481,6 @@ impl<'a> Resolver<'a> {
     }
 
     fn is_assignable(&self, expr: &Spanned<Expr>) -> Result<&Variable, Spanned<CTError>> {
-        if !expr.is_place() {
-            return Err(Spanned::new(
-                CTError::new(CTErrorKind::ExpectedPlace),
-                expr.start, expr.len,
-            ));
-        }
         match expr.obj_ref() {
             Expr::Var(n) => {
                 let var = match self.scope.get_var(n) {
@@ -513,7 +522,18 @@ impl<'a> Resolver<'a> {
                     _ => panic!(),
                 }
             },
-            _ => unreachable!("not places"),
+            Expr::Deref { expr } => {
+                match expr.obj_ref() {
+                    Expr::Var(v) => {
+                        Ok(self.scope.get_var(&v).unwrap())
+                    },
+                    _ => todo!(),
+                }
+            }
+            _ => Err(Spanned::new(
+                CTError::new(CTErrorKind::ExpectedPlace),
+                expr.start, expr.len,
+            )),
         }
     }
 

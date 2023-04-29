@@ -111,10 +111,14 @@ impl Compile for Expr {
                     _ => todo!(),
                 }
             },
-            Expr::GetPointer { expr } => {
+            Expr::MakePointer { expr, is_mut: _ } => {
                 out.extend(expr.compile(ctx));
                 self.add(&mut out, OpCode::OpMakePointer);
             },
+            Expr::Deref { expr } => {
+                out.extend(expr.compile(ctx));
+                self.add(&mut out, OpCode::OpDeref);
+            }
             Self::Poison => panic!(),
         }
         out

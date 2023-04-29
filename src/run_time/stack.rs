@@ -1,4 +1,4 @@
-use std::{ops::{Add, Sub, Mul, Rem, Neg, Div}, rc::Rc, cell::RefCell, fmt::Display, borrow::Borrow};
+use std::{ops::{Add, Sub, Mul, Rem, Neg, Div}, rc::Rc, cell::RefCell, fmt::Display};
 
 use crate::{expr_type::ExprType, class::Object};
 
@@ -9,7 +9,7 @@ pub enum StackVal {
     Int(i32), Float(f32), String(String), Bool(bool),
     Var(Rc<RefCell<StackVal>>), Slice(Box<StackVal>), Null,
     Obj(Object),
-    Object(Rc<RefCell<Object>>), Pointer(Rc<RefCell<Rc<RefCell<StackVal>>>>),
+    Object(Rc<RefCell<Object>>), Pointer(Rc<Rc<RefCell<StackVal>>>),
 }
 
 impl PartialOrd for StackVal {
@@ -52,6 +52,14 @@ impl StackVal {
         }
     }
 
+    pub fn derefed(&self) -> Result<Rc<RefCell<StackVal>>, RTError> {
+        match self {
+            StackVal::Var(v) => v.borrow().derefed(),
+            StackVal::Pointer(s) => Ok(s.as_ref().clone()),
+            _ => Err(RTError::ExpectedPtr),
+        }
+    }
+
     // pub fn get(&self, i: StackVal) -> StackVal {
     //     let i = match i {
     //         StackVal::Int(i) => i,
@@ -87,7 +95,7 @@ impl Display for StackVal {
             StackVal::Obj(_) => "object".to_string(),
             StackVal::Null => "void".to_string(),
             StackVal::Pointer(v) => format!("pointer to {}", v
-                .as_ref().borrow().as_ref().borrow()),
+                .as_ref().borrow()),
         })
     }
 }
@@ -157,6 +165,10 @@ impl Stack {
             StackVal::Slice(_) => todo!(),
             other => Rc::new(RefCell::new(other)),
         })
+    }
+
+    pub fn pop_derefed_ptr(&mut self) -> Result<Rc<RefCell<StackVal>>, RTError> {
+        self.normal_pop()?.derefed()
     }
 }
 

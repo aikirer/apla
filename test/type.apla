@@ -1,0 +1,4 @@
+mut var x: int = 2;
+x = 3;
+
+std(print(x));

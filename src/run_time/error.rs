@@ -9,6 +9,7 @@ pub enum RTError {
     VarDoesntExist(String),
     ExpectedPlace,
     ExpectedBool,
+    ExpectedPtr,
     ExpectedCallable,
 }
 
@@ -30,6 +31,8 @@ impl Display for RTError {
                 "Expected a boolean value!".to_string(),
             Self::ExpectedCallable => 
                 "Expected a callable!".to_string(),
+            Self::ExpectedPtr => 
+                "Expected a pointer!".to_string(),
         };
         write!(f, "{t}")
     }
