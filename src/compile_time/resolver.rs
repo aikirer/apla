@@ -289,6 +289,7 @@ impl<'a> Resolver<'a> {
             Expr::Poison => Err(Spanned::new(
                 CTError::new(CTErrorKind::Poisoned), 0, 0
             )),
+            Expr::GetPointer { expr } => Ok(self.resolve_expr(expr)?.as_pointer()),
         }
     }
 

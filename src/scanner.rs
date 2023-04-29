@@ -45,6 +45,7 @@ impl<'a> Scanner<'a> {
                 '{' => T::LeftBrace,
                 '}' => T::RightBrace,
                 '@' => T::At,
+                '^' => T::Caret,
                 ';' => T::Semicolon,
                 c @ ('"' | '\'') => self.string(c),
                 c if is_digit(c) => self.number(),

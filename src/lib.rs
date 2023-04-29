@@ -35,6 +35,7 @@ pub fn run(input: String) -> Result<(), ()> {
             code.node.optimize();
         }
     }, "optimizing");
+    // println!("ast after optimizing: {ast:?}");
     let callables = crate::measure_time!(
         match Resolver::resolve(
             &ast, &input, &functions, classes, apla_std
@@ -46,7 +47,6 @@ pub fn run(input: String) -> Result<(), ()> {
             },
         }, "resolving"
     );
-    // println!("ast after optimizing: {ast:?}");
     let (bytecode, callables) = {
         let compiler = Compiler::new(&ast, callables);
         crate::measure_time!(compiler.compile(), "compiling")

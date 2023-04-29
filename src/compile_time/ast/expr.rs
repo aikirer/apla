@@ -55,6 +55,9 @@ pub enum Expr {
         left: Box<Spanned<Expr>>,
         right: Box<Spanned<Expr>>,
     },
+    GetPointer {
+        expr: Box<Spanned<Expr>>,
+    },
 
     Poison
 }

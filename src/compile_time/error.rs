@@ -38,7 +38,7 @@ pub enum CTErrorKind {
     Poisoned,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CTError {
     pub kind: CTErrorKind
 }

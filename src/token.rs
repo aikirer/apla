@@ -5,7 +5,7 @@ pub enum Token {
     Plus, Minus, Slash, Percent, Star, Colon, Dot, Equals, EqualsEquals,
     BitAnd, BitOr, Greater, Smaller, NotEqual, Bang, Comma,
     LeftParen, LeftBracket, LeftBrace, RightBrace, RightBracket, 
-    RightParen, At, Semicolon, 
+    RightParen, At, Caret, Semicolon, 
 
     PlusEquals, MinusEquals, StarEquals, SlashEquals, PercentEquals,
 
@@ -52,6 +52,7 @@ impl Display for Token {
             Token::RightBracket => "]".to_string(),
             Token::RightParen => ")".to_string(),
             Token::At => "@".to_string(),
+            Token::Caret => "^".to_string(),
             Token::Semicolon => ";".to_string(),
             Token::And => "&&".to_string(),
             Token::Or => "||".to_string(),
@@ -126,7 +127,7 @@ pub enum PrecedenceLevel {
 #[derive(Debug)]
 pub enum ExprRole {
     Literal, Grouping, Binary, None, Unary, Object, Index,
-    Get,
+    Get, GetPointer,
 }
 
 #[derive(Debug)]
@@ -161,6 +162,7 @@ impl Token {
             Float(_) | Number(_) => (Lvl::Factor, Role::Literal, Role::None),
             Identifier(_) => (Lvl::Factor, Role::Object, Role::None),
             Bool(_) => (Lvl::Factor, Role::Literal, Role::None),
+            At => (Lvl::Unary, Role::GetPointer, Role::None),
             Greater | Smaller | GreaterEqual | SmallerEqual |
             EqualsEquals | NotEqual => 
                 (Lvl::Comparison, ExprRole::None, ExprRole::Binary),

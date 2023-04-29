@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, cell::RefCell};
 
 use crate::call::Call;
 
@@ -128,7 +128,12 @@ impl<'a> VM<'a> {
                         .get(&name.to_string())
                         .unwrap()
                         .call(self)?;
-                    }
+                },
+                OpMakePointer => {
+                    let pop = self.stack.pop_as_place()?;
+                    self.stack.push_dir(StackVal::Pointer(Rc::new(RefCell::new(pop))));
+                    
+                }
                 OpReturn => return self.stack.pop(),
             }
             at += 1;

@@ -111,6 +111,10 @@ impl Compile for Expr {
                     _ => todo!(),
                 }
             },
+            Expr::GetPointer { expr } => {
+                out.extend(expr.compile(ctx));
+                self.add(&mut out, OpCode::OpMakePointer);
+            },
             Self::Poison => panic!(),
         }
         out

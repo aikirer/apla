@@ -145,6 +145,3 @@ impl Call for ParsedFunc {
         None
     }
 }
-
-
-

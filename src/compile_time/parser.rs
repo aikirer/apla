@@ -188,6 +188,28 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_type(&mut self) -> Result<Spanned<String>, Spanned<CTError>> {
+        let pointer = if self.current.obj_ref() == &Token::Caret {
+            self.advance();
+            true
+        } else { false };
+        let (start, end) = (self.current.start, self.current.len);
+        let mut ty = match self.consume_ident() {
+            Ok(t) => t.to_string(),
+            Err(er) => {
+                self.report_error(&er);
+                return Err(Spanned::from_other_span(
+                    CTError::new(CTErrorKind::ExpectedIdent),
+                    self.current
+                ));
+            }
+        };
+        if pointer {
+            ty = "^".to_string() + &ty;
+        }
+        Ok(Spanned::new(ty.to_string(), start, end))
+    }
+
     fn parse_var_name_and_type(
         &mut self, start: usize, end: usize
     ) -> Result<(Spanned<String>, Spanned<String>), AstNode>
@@ -200,18 +222,11 @@ impl<'a> Parser<'a> {
             }
         };
         let name = Spanned::new(name.to_string(), start, end);
-        let ty = if Token::Colon == **self.current {
-            self.advance(); // ':'
-            let (start, end) = (self.current.start, self.current.len);
-            let ty = match self.consume_ident() {
-                Ok(t) => t,
-                Err(er) => {
-                    self.report_error(&er);
-                    return Err(AstNode::Stmt(Stmt::poison()))
-                }
-            };
-            Spanned::new(ty.to_string(), start, end)
-        } else { Spanned::new("_".to_string(), 0, 0) };
+        let default_type = Spanned::new("_".to_string(), 0, 0);
+        let ty = if self.current.obj_ref() == &Token::Colon {
+            self.advance();
+            self.parse_type().unwrap_or(default_type)
+        } else { default_type };
         Ok((name, ty))
     }
 
@@ -577,6 +592,7 @@ impl<'a> Parser<'a> {
             ExprRole::Grouping => self.grouping(ast),
             ExprRole::Index => self.index(ast),
             ExprRole::Get => self.expr_get(ast),
+            ExprRole::GetPointer => self.get_pointer(ast),
         };
         Some(())
     }
@@ -744,6 +760,24 @@ impl<'a> Parser<'a> {
         );
         if poisoned { span.poison(); }
         ast.nodes.push(AstNode::Expr(span))
+    }
+
+    fn get_pointer(&mut self, ast: &mut Ast) {
+        self.advance();
+        self.parse_prec(PrecedenceLevel::Unary, ast);
+        let Some(node) = ast.nodes.pop() else {
+            self.report_error(&Spanned::from_other_span(
+                CTError::new(CTErrorKind::ExpectedExpr), self.current));
+            return;
+        };
+        let (span_data, node) = match node {
+            AstNode::Expr(e) => {
+                (e.just_span_data(), Expr::GetPointer { expr: Box::new(e) })
+            },
+            _ => panic!(),
+        };
+        ast.nodes.push(AstNode::Expr(Spanned::from_other_span(
+            node, &span_data)));
     }
 
     fn func_call(&mut self, ast: &mut Ast, name: Spanned<String>) {

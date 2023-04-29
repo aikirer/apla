@@ -1,0 +1,6 @@
+mut var x = 2;
+var x_ptr: ^int = @x;
+std(print(x_ptr));
+x = 3;
+std(print(x_ptr));
+std(print(x));

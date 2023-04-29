@@ -20,4 +20,5 @@ pub enum OpCode {
     OpLoop(usize), OpEndLoop(usize), OpBreak, OpContinue,
 
     OpIndex, OpGetField(String), OpGetMethod(String),
+    OpMakePointer,
 }
