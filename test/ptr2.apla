@@ -1,9 +1,9 @@
-func f(x: ^int) {
+func f(x: ^mut int) {
     *x = 3;
 }
 
-var x = 2;
+mut var x = 2;
 std(print(x));
-f(@x);
+f(@mut x);
 
 std(print(x));

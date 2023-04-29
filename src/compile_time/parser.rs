@@ -784,7 +784,7 @@ impl<'a> Parser<'a> {
         };
         let (span_data, node) = match node {
             AstNode::Expr(e) => {
-                (e.just_span_data(), dbg!(Expr::MakePointer { expr: Box::new(e), is_mut }))
+                (e.just_span_data(), Expr::MakePointer { expr: Box::new(e), is_mut })
             },
             _ => panic!(),
         };
@@ -802,7 +802,7 @@ impl<'a> Parser<'a> {
         };
         let (span_data, node) = match node {
             AstNode::Expr(e) => {
-                (e.just_span_data(), dbg!(Expr::Deref { expr: Box::new(e) }))
+                (e.just_span_data(), Expr::Deref { expr: Box::new(e) })
             },
             _ => panic!(),
         };

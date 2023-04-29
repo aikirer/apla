@@ -28,10 +28,12 @@ pub enum CTErrorKind {
     ExpectedVarCreation,
     CantAssignToConst,
     CantAssignToThis,
+    CantAssignToConstPtr,
     TypeNotAnnotated,
     ExpectedFuncCall,
     CantIndex,
     CantDeref,
+    CantTakeMutPtrOfConst,
 
     WrongArgCount(usize),
     FuncDoesntExist(String),
@@ -96,6 +98,8 @@ impl Display for CTErrorKind {
                 "Cannot assign to a constant variable!".to_string(),
             Self::CantAssignToThis => 
                 "Cannot assign to this!".to_string(),
+            Self::CantAssignToConstPtr =>
+                "Cannot assign to a value behind a const pointer!".to_string(),
             Self::TypeNotAnnotated =>
                 "The type needs to be annotated explicitly for this variable!".to_string(),
             Self::WrongArgCount(count) =>
@@ -105,7 +109,9 @@ impl Display for CTErrorKind {
             Self::FuncDoesntExist(name) =>
                 format!("Function '{name}' doesn't exist!"),
             Self::CantDeref =>
-                format!("This cannot be dereferenced!"),
+                "This cannot be dereferenced!".to_string(),
+            Self::CantTakeMutPtrOfConst =>
+                "Cannot take a mutable pointer of a const variable!".to_string(),
             Self::CantIndex => "Indexing is unstable!".to_string(),
             Self::Poisoned => "poisoned".to_string(),
         })

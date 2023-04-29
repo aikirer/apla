@@ -171,12 +171,7 @@ impl<'a> Resolver<'a> {
             Expr::String(_) => Ok(ExprType::String),
             Expr::Bool(_) => Ok(ExprType::Bool),
             Expr::Var(n) => {
-                let var = match self.scope.get_var(n) {
-                    Ok(var) => var,
-                    Err(kind) => {
-                        return Err(make_error(kind, expr.start, expr.len))
-                    }
-                };
+                let var = self.get_var(n, expr)?;
                 if !var.is_init() {
                     return Err(
                         make_error(
@@ -291,14 +286,26 @@ impl<'a> Resolver<'a> {
             )),
             Expr::Deref { expr } => {
                 match self.resolve_expr(expr)?.derefed() {
-                    Ok(v) => Ok(dbg!(v)),
+                    Ok(v) => Ok(v),
                     Err(er) => Err(Spanned::from_other_span(
                         CTError::new(er), expr
                     ))
                 }
             }
-            Expr::MakePointer { expr, is_mut } => 
-                Ok(self.resolve_expr(expr)?.as_pointer(*is_mut)),
+            Expr::MakePointer { expr, is_mut } => {
+                match expr.obj_ref() {
+                    Expr::Var(v) => {
+                        let var = self.get_var(&v, &expr)?;
+                        if !var.is_mut {
+                            return Err(Spanned::from_other_span(
+                                CTError::new(CTErrorKind::CantTakeMutPtrOfConst), 
+                                expr));
+                        }
+                    },
+                    _ => (),
+                };
+                Ok(self.resolve_expr(expr)?.as_pointer(*is_mut))
+            }
         }
     }
 
@@ -483,12 +490,7 @@ impl<'a> Resolver<'a> {
     fn is_assignable(&self, expr: &Spanned<Expr>) -> Result<&Variable, Spanned<CTError>> {
         match expr.obj_ref() {
             Expr::Var(n) => {
-                let var = match self.scope.get_var(n) {
-                    Ok(var) => var,
-                    Err(kind) => return Err(Spanned::new(
-                        CTError::new(kind), expr.start, expr.len
-                    )),
-                };
+                let var = self.get_var(n, expr)?;
                 if !var.is_mut && var.is_init() {
                     return Err(Spanned::new(
                         CTError::new(CTErrorKind::CantAssignToConst),
@@ -506,7 +508,7 @@ impl<'a> Resolver<'a> {
             },
             Expr::Get { left, right } => {
                 let obj = match left.obj_ref() {
-                    Expr::Var(v) => match &self.scope.get_var(v).unwrap().ty {
+                    Expr::Var(v) => match &self.get_var(&v, &left)?.ty {
                         ExprType::Class(c) => c,
                         _ => panic!(),
                     }
@@ -525,7 +527,19 @@ impl<'a> Resolver<'a> {
             Expr::Deref { expr } => {
                 match expr.obj_ref() {
                     Expr::Var(v) => {
-                        Ok(self.scope.get_var(&v).unwrap())
+                        let var = self.get_var(&v, expr)?;
+                        match var.ty {
+                            ExprType::Pointer { points_to: _, is_mut } => {
+                                if !is_mut {
+                                    return Err(Spanned::from_other_span(
+                                        CTError::new(CTErrorKind::CantAssignToConstPtr),
+                                        &expr
+                                    ));
+                                }
+                            },
+                            _ => todo!(),
+                        }
+                        self.get_var(v, &expr)
                     },
                     _ => todo!(),
                 }
@@ -544,6 +558,18 @@ impl<'a> Resolver<'a> {
 
     fn get_callable(&self, name: &str) -> Option<&Box<dyn Call>> {
         self.callables.get(name)
+    }
+
+    fn get_var<T>(
+        &self, name: &str, span_for_err: &Spanned<T>
+    ) -> Result<&Variable, Spanned<CTError>> 
+    {
+        match self.scope.get_var(name) {
+            Ok(var) => Ok(var),
+            Err(kind) => Err(Spanned::from_other_span(
+                CTError::new(kind), span_for_err
+            )),
+        }
     }
 }
 

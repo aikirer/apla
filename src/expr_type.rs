@@ -82,10 +82,10 @@ impl TryFrom<&str> for ExprType {
             _ => return error,
         };
         if is_pointer {
-            Ok(dbg!(Self::Pointer { 
+            Ok(Self::Pointer { 
                 points_to: Box::new(matched_type), 
                 is_mut: mut_pointer
-            }))
+            })
         } else {
             Ok(matched_type)
         }
