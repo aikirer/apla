@@ -60,6 +60,15 @@ impl StackVal {
         }
     }
 
+    pub fn to_object(&self) -> Result<Rc<RefCell<Object>>, RTError> {
+        match self {
+            StackVal::Var(v) => v.borrow().to_object(),
+            StackVal::Pointer(p) => p.borrow().to_object(),
+            StackVal::Object(o) => Ok(Rc::clone(o)),
+            _ => Err(RTError::ExpectedObj),
+        }
+    }
+
     // pub fn get(&self, i: StackVal) -> StackVal {
     //     let i = match i {
     //         StackVal::Int(i) => i,
@@ -147,14 +156,7 @@ impl Stack {
     }
 
     pub fn pop_object(&mut self) -> Result<Rc<RefCell<Object>>, RTError> {
-        match self.normal_pop()? {
-            StackVal::Var(o) => match &*o.as_ref().borrow() {
-                StackVal::Object(o) => Ok(Rc::clone(o)),
-                _ => panic!(),
-            }
-            StackVal::Object(o) => Ok(o),
-            _ => panic!(),
-        }
+        self.normal_pop()?.to_object()
     }
 
     pub fn pop_as_place(&mut self) -> Result<Rc<RefCell<StackVal>>, RTError> {

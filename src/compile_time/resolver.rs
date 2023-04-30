@@ -251,8 +251,15 @@ impl<'a> Resolver<'a> {
             Expr::Get { left, right } => {
                 let left_span = left.just_span_data();
                 let left = self.resolve_expr(&left)?;
-                let obj = match left {
+                let obj = match &left {
                     ExprType::Class(a) => a,
+                    ExprType::Pointer { points_to, is_mut: _ } => {
+                        match points_to.as_ref() {
+                            ExprType::Class(a) => a,
+                            _ => return Err(Spanned::from_other_span(
+                                CTError::new(CTErrorKind::CantUseGet), &left_span))
+                        }
+                    },
                     _ => {
                         return Err(Spanned::from_other_span(
                             CTError::new(CTErrorKind::CantUseGet), &left_span))
@@ -510,6 +517,12 @@ impl<'a> Resolver<'a> {
                 let obj = match left.obj_ref() {
                     Expr::Var(v) => match &self.get_var(&v, &left)?.ty {
                         ExprType::Class(c) => c,
+                        ExprType::Pointer { points_to, is_mut: _ } => {
+                            match points_to.as_ref() {
+                                ExprType::Class(c) => c,
+                                _ => panic!(),
+                            }
+                        }
                         _ => panic!(),
                     }
                     Expr::Get { left: _, right: _ } => todo!(),

@@ -11,6 +11,7 @@ pub enum RTError {
     ExpectedBool,
     ExpectedPtr,
     ExpectedCallable,
+    ExpectedObj,
 }
 
 impl Error for RTError {}
@@ -33,6 +34,7 @@ impl Display for RTError {
                 "Expected a callable!".to_string(),
             Self::ExpectedPtr => 
                 "Expected a pointer!".to_string(),
+            Self::ExpectedObj => "Expected an object!".to_string(),
         };
         write!(f, "{t}")
     }
