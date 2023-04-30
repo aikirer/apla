@@ -296,7 +296,7 @@ impl<'a> Resolver<'a> {
                 match expr.obj_ref() {
                     Expr::Var(v) => {
                         let var = self.get_var(&v, &expr)?;
-                        if !var.is_mut {
+                        if *is_mut && !var.is_mut {
                             return Err(Spanned::from_other_span(
                                 CTError::new(CTErrorKind::CantTakeMutPtrOfConst), 
                                 expr));
