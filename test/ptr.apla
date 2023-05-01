@@ -1,7 +1,9 @@
 mut var x = 2;
 var x_ptr: ^int = @x;
 var mut_x_ptr: ^mut int = @mut x;
-std(print(x_ptr));
+std(print(x));
 x = 3;
 std(print(x_ptr));
+std(print(*x_ptr));
+*mut_x_ptr = 128;
 std(print(x));

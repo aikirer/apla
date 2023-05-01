@@ -1,10 +1,11 @@
 use std::fmt::Display;
 
-use crate::{compile_time::error::{CTError, CTErrorKind}, class::ParsedClass};
+use crate::{compile_time::{error::{CTError, CTErrorKind}, self}, class::ParsedClass};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExprType {
     Int, Float, String, Bool, ToBeInferred, Any, Null,
+    ClassThis,
     Class(ParsedClass), Pointer {
         points_to: Box<ExprType>,
         is_mut: bool,
@@ -44,6 +45,7 @@ impl Display for ExprType {
             ExprType::Any => "any".to_string(),
             ExprType::Null => "null".to_string(),
             ExprType::Class(_) => "class".to_string(),
+            ExprType::ClassThis => "this".to_string(),
             ExprType::Pointer { points_to, is_mut } => {
                 if *is_mut {
                     format!("@mut {points_to}")
@@ -78,6 +80,7 @@ impl TryFrom<&str> for ExprType {
             "str" => Self::String,
             "bool" => Self::Bool,
             "void" => Self::Null,
+            compile_time::THIS_AS_STR => Self::ClassThis,
             "_" => Self::ToBeInferred,
             _ => return error,
         };

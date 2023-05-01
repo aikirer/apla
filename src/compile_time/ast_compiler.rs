@@ -72,6 +72,10 @@ impl Compile for Expr {
     fn compile(&self, ctx: &Ctx) -> compile::Output {
         let mut out = vec![];
         match self {
+            Expr::This { callee }=> {
+                out.extend(callee.compile(ctx));
+                self.add(&mut out, OpMakePointer);
+            },
             Expr::Int(n) => self.add(&mut out, OpNumber(*n)),
             Expr::Float(f) => self.add(&mut out, OpFloat(*f)),
             Expr::String(s) => self.add(&mut out, OpString(s.to_string())),
@@ -89,9 +93,18 @@ impl Compile for Expr {
                 self.add(&mut out, OpCode::OpNegate);
             },
             Expr::Call { name, args } => {
-                out.extend(ctx.callables.get(name.obj_ref())
-                    .unwrap()
+                out.extend(ctx.get(name.obj_ref())
                     .compile_call(args, ctx));
+                // this is so hacky and so bad
+                let opcode = match out.iter_mut().rev().nth(1) {
+                    Some(o) => o,
+                    None => return out,
+                };
+                // Call Foo.bar() instead of bar()
+                match opcode {
+                    OpCall(n) => *n = name.to_string(),
+                    _ => (),
+                };
             },
             Expr::Index { object, i } => {
                 out.extend(object.compile(ctx));

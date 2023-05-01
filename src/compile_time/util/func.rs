@@ -68,6 +68,7 @@ impl Call for ParsedFunc {
         &self, node: &Spanned<Expr>, resolver: &Resolver
     ) -> Result<(), Spanned<CTError>> {
         let arg_list: &[&ExprType] = &self.get_arg_list();
+        dbg!(arg_list);
         match node.obj_ref() {
             Expr::Call { name: _, args } => {
                 let got_arg_types = args.iter()
@@ -86,6 +87,7 @@ impl Call for ParsedFunc {
                         .zip(arg_list) 
                         .enumerate()
                 {
+                    println!("asd");
                     match got_type {
                         Ok(t) => if t != *expected_type {
                             return Err(
@@ -109,7 +111,6 @@ impl Call for ParsedFunc {
         &self, nodes: &[Spanned<Expr>], ctx: &compile::Ctx
     ) -> Vec<OpCode> 
     {
-        
         let mut out = vec![OpCode::OpPushScope];
         for (e, name) in nodes.iter()
                 .zip(self.args.iter().map(|e| e.0)) 

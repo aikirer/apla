@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use super::method_translator::{translate_ast_method_calls, translate_node_method_calls};
+
 use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std, class::{Class, ParsedClass}};
 
 use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
@@ -7,7 +9,6 @@ use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, 
 pub type FunctionBundle = (Func, ParsedFunc);
 
 pub struct Resolver<'a> {
-    ast: &'a Ast,
     callables: HashMap<String, Box<dyn Call>>,
     scope: Scope,
     text: &'a str,
@@ -18,15 +19,15 @@ pub struct Resolver<'a> {
 
 impl<'a> Resolver<'a> {
     pub fn resolve(
-        ast: &'a Ast, text: &'a str, functions: &'a HashMap<String, Func>,
+        ast: &'a mut Ast, text: &'a str, functions: &'a HashMap<String, Func>,
         classes: HashMap<String, Class>,
         apla_std: Std,
     ) ->  Result<HashMap<String, Box<dyn Call>>, ()>
     {
+        // translate_ast_method_calls(ast, classes)
         let mut callables = HashMap::new();
         callables.insert("std".to_string(), Box::new(apla_std) as Box<dyn Call>);
         let mut new_self = Self {
-            ast,
             scope: Scope::new(),
             callables,
             text,
@@ -39,6 +40,10 @@ impl<'a> Resolver<'a> {
                 (name.to_string(), (func.clone(), new_self.parse_func(func)))
             )
             .collect::<HashMap<_, _>>();
+
+        let parsed_classes = classes.into_iter()
+            .map(|(name, c)| (name, new_self.parse_class(c)))
+            .collect::<HashMap<_, _>>();
         for (name, (orig_func, parsed_func)) in functions {
             new_self.scope.add_scope();
             for arg in &parsed_func.args {
@@ -46,27 +51,27 @@ impl<'a> Resolver<'a> {
             }
             new_self.expected_return_type = parsed_func.return_type.clone();
             new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
+            translate_ast_method_calls(ast, &parsed_classes);
             new_self.resolve_node(&orig_func.node);
             new_self.scope.pop_scope();
             new_self.expected_return_type = ExprType::Null;
         };
 
-        let parsed_classes = classes.into_iter()
-            .map(|(name, c)| (name, new_self.parse_class(c)))
-            .collect::<HashMap<_, _>>();
+        translate_ast_method_calls(ast, &parsed_classes);
         for (name, class) in parsed_classes {
+            new_self.scope.add_scope();
             for (_, method) in &class.methods {
                 new_self.expected_return_type = method.return_type.clone();
                 new_self.resolve_node(&method.orig_node);
                 new_self.expected_return_type = ExprType::Null;
             }
             new_self.callables.insert(name, Box::new(class) as Box<dyn Call>);
+            new_self.scope.pop_scope();
         }
-        // doing it here doesn't require borrowing self
-        for node in &new_self.ast.nodes {
+        for node in &ast.nodes {
             new_self.resolve_node(node);
         }
-
+        
         match new_self.had_error {
             true => Err(()),
             false => Ok(new_self.callables),
@@ -92,6 +97,7 @@ impl<'a> Resolver<'a> {
     ) -> HashMap<String, Variable> 
     {
         let mut result = vec![];
+        dbg!(args);
         for arg in args {
             match arg {
                 AstNode::Stmt(s) => match s.obj_ref() {
@@ -100,7 +106,7 @@ impl<'a> Resolver<'a> {
                             s, *is_mut, name, ty, value
                         );
                         var.1.init();
-                        result.push(var)
+                        result.push(dbg!(var))
                     },
                     _ => {
                         self.report_error(&Spanned::new(
@@ -117,16 +123,18 @@ impl<'a> Resolver<'a> {
                 }
             }
         };
-        result.into_iter()
-            .map(|(name, var)| {
-                if var.ty == ExprType::ToBeInferred {
-                    self.report_error(&Spanned::new(
-                        CTError::new(CTErrorKind::TypeNotAnnotated), 
-                        name.start, name.len
-                    ));
-                }
-                (name.to_string(), var)
-            }).collect()
+        dbg!(&result);
+        let mut new_result = HashMap::new();
+        for (name, var) in result {
+            if var.ty == ExprType::ToBeInferred {
+                self.report_error(&Spanned::new(
+                    CTError::new(CTErrorKind::TypeNotAnnotated), 
+                    name.start, name.len
+                ));
+            }
+            new_result.insert(name.to_string(), var);
+        }
+        dbg!(new_result)
     }
 
     fn parse_func(&mut self, func: &Func) -> ParsedFunc {
@@ -166,6 +174,7 @@ impl<'a> Resolver<'a> {
     pub fn resolve_expr(&self, expr: &Spanned<Expr>) -> Result<ExprType, Spanned<CTError>> {
         if expr.poisoned { return Ok(ExprType::ToBeInferred) }
         match expr.obj_ref() {
+            Expr::This { callee: _ } => Ok(ExprType::ClassThis),
             Expr::Int(_) => Ok(ExprType::Int),
             Expr::Float(_) => Ok(ExprType::Float),
             Expr::String(_) => Ok(ExprType::String),
@@ -249,6 +258,7 @@ impl<'a> Resolver<'a> {
                 return Ok(tp_from_index)
             },
             Expr::Get { left, right } => {
+                dbg!(&expr);
                 let left_span = left.just_span_data();
                 let left = self.resolve_expr(&left)?;
                 let obj = match &left {
@@ -274,17 +284,7 @@ impl<'a> Resolver<'a> {
                                 &right))
                         }
                     },
-                    Expr::Call { name, args: _ } => {
-                        match obj.methods.get(&name.to_string()) {
-                            Some(f) => {
-                                f.resolve(&right, self)?;
-                                Ok(f.get_return_type(&right))
-                            },
-                            None => Err(Spanned::from_other_span(
-                                CTError::new(CTErrorKind::FuncDoesntExist(name.to_string())), 
-                                &right)),
-                        }
-                    },
+                    Expr::Call { name: _, args: _ } => todo!(),
                     _ => panic!(),
                 }
             },
@@ -569,8 +569,29 @@ impl<'a> Resolver<'a> {
         report_error(error, self.text);
     }
 
-    fn get_callable(&self, name: &str) -> Option<&Box<dyn Call>> {
+    fn get_callable(&self, name: &str) -> Option<&dyn Call> {
+        if name.contains('.') {
+            Some(self.get_method(name))
+        } else {
+            self.get_boxed_callable(name)
+                .map(|callable| callable.as_ref())
+        }
+    }
+
+    fn get_boxed_callable(&self, name: &str) -> Option<&Box<dyn Call>> {
         self.callables.get(name)
+    }
+
+    // FORMAT: 'foo.bar()' in source code is 'Foo.bar(foo)' here
+    fn get_method(&self, name: &str) -> &dyn Call {
+        let parts = name.split('.').collect::<Vec<_>>();
+        if parts.len() != 2 { panic!() }
+        let (class_name, method) = (parts[0], parts[1]);
+        self.callables.get(class_name).unwrap().as_obj().unwrap()
+            .methods
+            .get(method)
+            .map(|method| method as &dyn Call)
+            .unwrap()
     }
 
     fn get_var<T>(

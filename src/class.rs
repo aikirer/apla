@@ -40,18 +40,13 @@ impl ParsedClass {
 pub struct Object {
     pub runtime_fields: HashMap<String, Rc<RefCell<StackVal>>>,
     pub fields: HashMap<String, Variable>,
-    pub methods: HashMap<String, ParsedFunc>, 
 }
 
 impl Object {
-    pub fn new(
-        fields: HashMap<String, Variable>, 
-        methods: HashMap<String, ParsedFunc>
-    ) -> Self 
-    {
+    pub fn new(fields: HashMap<String, Variable>) -> Self {
         Self {
             runtime_fields: HashMap::new(),
-            fields, methods,
+            fields,
         }
     }
 }
@@ -86,7 +81,7 @@ impl Call for ParsedClass {
 
     fn call(&self, _vm: &mut VM<'_>) -> Result<StackVal, RTError> {
         // TODO: fix cloning
-        let mut object = Object::new(self.fields.clone(), self.methods.clone());
+        let mut object = Object::new(self.fields.clone());
         object.runtime_fields = object.fields.iter()
             .map(|(name, _)| (name.to_string(), Rc::new(RefCell::new(StackVal::Null))))
             .collect();

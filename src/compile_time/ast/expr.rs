@@ -62,8 +62,11 @@ pub enum Expr {
     Deref {
         expr: Box<Spanned<Expr>>,
     },
+    This {
+        callee: Box<Spanned<Expr>>,
+    },
 
-    Poison
+    Poison, 
 }
 
 impl Operator {

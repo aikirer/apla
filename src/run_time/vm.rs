@@ -123,11 +123,11 @@ impl<'a> VM<'a> {
                         obj.borrow().runtime_fields.get(name).unwrap()
                     ));
                 }
-                OpGetMethod(name) => {
-                    self.stack.pop_object()?.borrow().methods
-                        .get(&name.to_string())
-                        .unwrap()
-                        .call(self)?;
+                OpGetMethod(_name) => {
+                    // self.stack.pop_object()?.borrow().methods
+                    //     .get(&name.to_string())
+                    //     .unwrap()
+                    //     .call(self)?;
                 },
                 OpMakePointer => {
                     let pop = self.stack.pop_as_place()?;
@@ -167,12 +167,30 @@ impl<'a> VM<'a> {
 
     fn get_callable(
         &self, name: &str
-    ) -> Result<&&'a dyn Call, RTError> 
+    ) -> Result<&'a dyn Call, RTError> 
     {
-        match self.callables.get(name) {
-            Some(a) => Ok(a),
-            None => Err(RTError::ExpectedCallable)
+        if name.contains('.') {
+            let (class, method) = {
+                let parts: Vec<_> = name.split('.').collect();
+                (parts[0], parts[1])
+            };
+            match self.get_callable(class)?
+                .as_obj()
+                .unwrap()
+                .methods
+                .get(method)
+                .map(|func| func as &dyn Call) 
+            {
+                Some(a) => Ok(a),
+                None => Err(RTError::ExpectedCallable)
+            }
+        } else {        
+            match self.callables.get(name) {
+                Some(a) => Ok(a.clone()), // this clones a reference
+                None => Err(RTError::ExpectedCallable)
+            }
         }
+
     }
 }
 

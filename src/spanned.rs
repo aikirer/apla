@@ -15,6 +15,10 @@ impl<T> Spanned<T> {
         }
     }
 
+    pub fn zeroed(obj: T) -> Self {
+        Self::new(obj, 0, 0)
+    }
+
     pub fn new_poisoned(obj: T, start: usize, len: usize) -> Self {
         let mut this = Self::new(obj, start, len);
         this.poison();

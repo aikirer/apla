@@ -38,7 +38,7 @@ pub fn run(input: String) -> Result<(), ()> {
     // println!("ast after optimizing: {ast:?}");
     let callables = crate::measure_time!(
         match Resolver::resolve(
-            &ast, &input, &functions, classes, apla_std
+            &mut ast, &input, &functions, classes, apla_std
         ) 
         {
             Ok(functions) => functions,

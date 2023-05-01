@@ -1,13 +1,14 @@
 class A {
     var x: int;
 
-    func square() int { 
-        return 2 * 2;
+    func square(x: int) int { 
+        return x * x;
     }
 }
 
 var a = A();
-a.x = 3;
-std(print(a.x));
-a.x = a.x * a.x;
-std(print(a.x));
+#a.x = 3;
+#std(print(a.x));
+#a.x = a.x * a.x;
+#std(print(a.x));
+std(print(a.square(3)));

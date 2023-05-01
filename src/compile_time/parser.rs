@@ -475,6 +475,14 @@ impl<'a> Parser<'a> {
 
     fn class_dec(&mut self) {
         do_or_report_and!(self, self.consume(&Token::Class) => {});
+        let this = AstNode::Stmt(Spanned::zeroed(
+            Stmt::VarCreation { 
+                is_mut: false, 
+                name: Spanned::zeroed("this".to_string()), 
+                ty: Spanned::zeroed(super::THIS_AS_STR.to_string()), 
+                value: None 
+            }
+        ));
         let name = match self.consume_ident() {
             Ok(n) => n,
             Err(er) => {
@@ -491,10 +499,13 @@ impl<'a> Parser<'a> {
             match self.current.obj_ref() {
                 Token::Var | Token::Mut => class.fields.push(self.var_creation()),
                 Token::Func => {
-                    let func = match self.func_dec() {
+                    let mut func = match self.func_dec() {
                         Ok(f) => f,
                         Err(_) => continue,
                     };
+                    let mut new_args = vec![this.clone()];
+                    new_args.extend(func.1.args);
+                    func.1.args = new_args;
                     class.methods.insert(func.0, func.1);
                 }
                 _ => panic!(),
