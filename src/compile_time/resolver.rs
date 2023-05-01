@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::method_translator::{translate_ast_method_calls, translate_node_method_calls};
+use super::method_translator::translate_ast_method_calls;
 
 use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std, class::{Class, ParsedClass}, named_obj_container::NamedObjContainer};
 
@@ -97,7 +97,6 @@ impl<'a> Resolver<'a> {
     ) -> NamedObjContainer<Variable> 
     {
         let mut result = vec![];
-        dbg!(args);
         for arg in args {
             match arg {
                 AstNode::Stmt(s) => match s.obj_ref() {
@@ -106,7 +105,7 @@ impl<'a> Resolver<'a> {
                             s, *is_mut, name, ty, value
                         );
                         var.1.init();
-                        result.push(dbg!(var))
+                        result.push(var)
                     },
                     _ => {
                         self.report_error(&Spanned::new(
@@ -123,7 +122,6 @@ impl<'a> Resolver<'a> {
                 }
             }
         };
-        dbg!(&result);
         let mut new_result = NamedObjContainer::new();
         for (name, var) in result {
             if var.ty == ExprType::ToBeInferred {
@@ -134,7 +132,7 @@ impl<'a> Resolver<'a> {
             }
             new_result.insert(&name.to_string(), var);
         }
-        dbg!(new_result)
+        new_result
     }
 
     fn parse_func(&mut self, func: &Func) -> ParsedFunc {

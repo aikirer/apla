@@ -68,7 +68,6 @@ impl Call for ParsedFunc {
         &self, node: &Spanned<Expr>, resolver: &Resolver
     ) -> Result<(), Spanned<CTError>> {
         let arg_list: &[&ExprType] = &self.get_arg_list();
-        dbg!(arg_list);
         match node.obj_ref() {
             Expr::Call { name: _, args } => {
                 let got_arg_types = args.iter()
