@@ -284,7 +284,7 @@ impl<'a> Resolver<'a> {
                                 &right))
                         }
                     },
-                    Expr::Call { name: _, args: _ } => todo!(),
+                    Expr::Call { name: _, args: _ } => todo!("{expr:?}"),
                     _ => panic!(),
                 }
             },

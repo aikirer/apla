@@ -86,7 +86,6 @@ impl Call for ParsedFunc {
                         .zip(arg_list) 
                         .enumerate()
                 {
-                    println!("asd");
                     match got_type {
                         Ok(t) => if t != *expected_type {
                             return Err(

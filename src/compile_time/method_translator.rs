@@ -119,7 +119,7 @@ fn try_to_construct_call(node: &Spanned<Expr>, scope: &Scope) -> Option<AstNode>
     let e_span = node.just_span_data();
     match node.obj_ref() {
         Expr::Get { left, right } => {
-            let Some(class) = try_to_get_var_type(&left, &scope) else { return None };
+            let Some(class) = try_to_get_var_as_class(&left, &scope) else { return None };
             match &right.obj {
                 Expr::Call { name, args } => {
                     let mut new_args = vec![Spanned::zeroed(
@@ -141,12 +141,18 @@ fn try_to_construct_call(node: &Spanned<Expr>, scope: &Scope) -> Option<AstNode>
     }
 }
 
-fn try_to_get_var_type<'a>(node: &Expr, scope: &'a Scope) -> Option<&'a ParsedClass> {
-    let Some(var) = try_to_get_var(node, scope) else { return None };
-    match &var.ty {
+fn expr_type_to_class<'a>(ty: &'a ExprType, scope: &'a Scope) -> Option<&'a ParsedClass> {
+    match ty {
         ExprType::Class(c) => Some(c),
+        ExprType::Pointer { points_to, is_mut: _ } => 
+            expr_type_to_class(points_to, scope),
         _ => None,
     }   
+}
+
+fn try_to_get_var_as_class<'a>(node: &Expr, scope: &'a Scope) -> Option<&'a ParsedClass> {
+    let Some(var) = try_to_get_var(node, scope) else { return None };
+    expr_type_to_class(&var.ty, scope)  
 }
 
 fn try_to_get_var<'a>(node: &Expr, scope: &'a Scope) -> Option<&'a Variable> {
@@ -158,6 +164,7 @@ fn try_to_get_var<'a>(node: &Expr, scope: &'a Scope) -> Option<&'a Variable> {
         _ => None,
     }
 }
+
 
 fn create_var_if_obj(node: &Stmt, classes: &Classes, scope: &mut Scope) {
     match node {
@@ -172,6 +179,15 @@ fn create_var_if_obj(node: &Stmt, classes: &Classes, scope: &mut Scope) {
                             scope.add_var(var_name, var);
                         }
                     },
+                    Expr::MakePointer { expr, is_mut: _ } => {
+                        match expr.obj_ref() {
+                            Expr::Var(v) => if let Ok(var) = scope.get_var(&v) {
+                                scope.add_var(var_name, Variable::new(ExprType::Pointer { 
+                                    points_to: Box::new(var.ty.clone()), is_mut: false }, false, false))
+                            },
+                            _ => (),
+                        }
+                    }
                     _ => (),
                 }
             }

@@ -6,7 +6,5 @@ class A {
 }
 
 var a = A();
-a.x = 2;
 var a_ptr = @a;
-std(print(a_ptr));
-std(print(a_ptr.x));
+std(print(a_ptr.f()));
