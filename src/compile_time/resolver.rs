@@ -61,6 +61,9 @@ impl<'a> Resolver<'a> {
         for (name, class) in parsed_classes {
             new_self.scope.add_scope();
             for (_, method) in &class.methods {
+                for (name, var) in method.args.iter() {
+                    new_self.scope.add_var(&name, var.clone());
+                }
                 new_self.expected_return_type = method.return_type.clone();
                 new_self.resolve_node(&method.orig_node);
                 new_self.expected_return_type = ExprType::Null;
@@ -256,7 +259,6 @@ impl<'a> Resolver<'a> {
                 return Ok(tp_from_index)
             },
             Expr::Get { left, right } => {
-                dbg!(&expr);
                 let left_span = left.just_span_data();
                 let left = self.resolve_expr(&left)?;
                 let obj = match &left {
