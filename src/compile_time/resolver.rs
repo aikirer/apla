@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::method_translator::{translate_ast_method_calls, translate_node_method_calls};
 
-use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std, class::{Class, ParsedClass}};
+use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std, class::{Class, ParsedClass}, named_obj_container::NamedObjContainer};
 
 use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
 
@@ -46,8 +46,8 @@ impl<'a> Resolver<'a> {
             .collect::<HashMap<_, _>>();
         for (name, (orig_func, parsed_func)) in functions {
             new_self.scope.add_scope();
-            for arg in &parsed_func.args {
-                new_self.scope.add_var(arg.0, arg.1.clone());
+            for arg in parsed_func.args.iter() {
+                new_self.scope.add_var(&arg.0, arg.1.clone());
             }
             new_self.expected_return_type = parsed_func.return_type.clone();
             new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
@@ -94,7 +94,7 @@ impl<'a> Resolver<'a> {
 
     fn parse_func_args(
         &mut self, args: &Vec<AstNode>
-    ) -> HashMap<String, Variable> 
+    ) -> NamedObjContainer<Variable> 
     {
         let mut result = vec![];
         dbg!(args);
@@ -124,7 +124,7 @@ impl<'a> Resolver<'a> {
             }
         };
         dbg!(&result);
-        let mut new_result = HashMap::new();
+        let mut new_result = NamedObjContainer::new();
         for (name, var) in result {
             if var.ty == ExprType::ToBeInferred {
                 self.report_error(&Spanned::new(
@@ -132,7 +132,7 @@ impl<'a> Resolver<'a> {
                     name.start, name.len
                 ));
             }
-            new_result.insert(name.to_string(), var);
+            new_result.insert(&name.to_string(), var);
         }
         dbg!(new_result)
     }

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, cell::RefCell};
+use std::cell::RefCell;
 
 use crate::{
     expr_type::ExprType, 
@@ -9,7 +9,7 @@ use crate::{
         vm::VM, 
         stack::StackVal, 
         error::RTError}, 
-    call::Call
+    call::Call, named_obj_container::NamedObjContainer
 };
 
 use super::variable::Variable;
@@ -38,7 +38,7 @@ impl Func {
 pub struct ParsedFunc {
     pub name: String,
     pub return_type: ExprType,
-    pub args: HashMap<String, Variable>,
+    pub args: NamedObjContainer<Variable>,
     pub code: RefCell<Vec<OpCode>>,
     pub orig_node: AstNode,
 }
@@ -47,7 +47,7 @@ pub struct ParsedFunc {
 impl ParsedFunc {
     pub fn new(
         name: String,
-        return_type: ExprType, args: HashMap<String, Variable>,
+        return_type: ExprType, args: NamedObjContainer<Variable>,
         node: AstNode,
     ) -> Self {
         Self {
@@ -113,7 +113,7 @@ impl Call for ParsedFunc {
     {
         let mut out = vec![OpCode::OpPushScope];
         for (e, name) in nodes.iter()
-                .zip(self.args.iter().map(|e| e.0)) 
+                .zip(self.args.iter().map(|e| e.0.clone())) 
         {
             out.extend(e.compile(ctx));
             out.push(OpCode::OpCreateVar(name.to_string()));

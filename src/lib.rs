@@ -16,6 +16,7 @@ pub mod spanned;
 pub mod call;
 pub mod class;
 pub mod apla_std;
+pub mod named_obj_container;
 
 pub fn run(input: String) -> Result<(), ()> {
     let apla_std = Std::new();
