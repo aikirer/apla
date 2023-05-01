@@ -5,7 +5,7 @@ use crate::{
     run_time::{bytecode::OpCode, stack::StackVal, vm::VM, error::RTError}, spanned::Spanned, class::ParsedClass
 };
 
-pub trait Call 
+pub trait Call
 where
     Self: Debug
 {

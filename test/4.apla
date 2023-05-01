@@ -1,3 +1,8 @@
-var x: int = 2;
-var y: str = "asd";
-var z: bool = true;
+func f(x: ^mut int) {
+    *x = 3;
+}
+
+mut var x = 2;
+std(print(x));
+f(@mut x);
+std(print(x));
