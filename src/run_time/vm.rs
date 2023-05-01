@@ -175,7 +175,7 @@ impl<'a> VM<'a> {
                 (parts[0], parts[1])
             };
             match self.get_callable(class)?
-                .as_obj()
+                .as_class()
                 .unwrap()
                 .methods
                 .get(method)

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::method_translator::translate_ast_method_calls;
+use super::method_translator::{translate_ast_method_calls, translate_node_method_calls};
 
 use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std, class::{Class, ParsedClass}, named_obj_container::NamedObjContainer};
 
@@ -16,7 +16,6 @@ pub struct Resolver<'a> {
     expected_return_type: ExprType,
 }
 
-
 impl<'a> Resolver<'a> {
     pub fn resolve(
         ast: &'a mut Ast, text: &'a str, functions: &'a HashMap<String, Func>,
@@ -29,7 +28,7 @@ impl<'a> Resolver<'a> {
         callables.insert("std".to_string(), Box::new(apla_std) as Box<dyn Call>);
         let mut new_self = Self {
             scope: Scope::new(),
-            callables,
+            callables: callables,
             text,
             had_error: false,
             expected_return_type: ExprType::Null,
@@ -51,24 +50,35 @@ impl<'a> Resolver<'a> {
             }
             new_self.expected_return_type = parsed_func.return_type.clone();
             new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
-            translate_ast_method_calls(ast, &parsed_classes);
+            translate_ast_method_calls(ast, &parsed_classes, vec![]);
             new_self.resolve_node(&orig_func.node);
             new_self.scope.pop_scope();
             new_self.expected_return_type = ExprType::Null;
         };
 
-        translate_ast_method_calls(ast, &parsed_classes);
-        for (name, class) in parsed_classes {
+        translate_ast_method_calls(ast, &parsed_classes, vec![]);            
+        // The cloning is (hopefully) temporary, because this is terrible.
+        let classes = parsed_classes.clone();
+        for (name, mut class) in parsed_classes {
+            let this = Variable::new(ExprType::Class(class.clone()), false, true);
             new_self.scope.add_scope();
-            for (_, method) in &class.methods {
+            new_self.scope.add_var("this", this.clone());
+            for (_, method) in &mut class.methods {
+                new_self.scope.add_scope();
                 for (name, var) in method.args.iter() {
-                    new_self.scope.add_var(&name, var.clone());
+                    if var.ty != ExprType::ClassThis {
+                        new_self.scope.add_var(&name, var.clone());
+                    }
                 }
                 new_self.expected_return_type = method.return_type.clone();
+                translate_node_method_calls(
+                    &mut method.orig_node, &classes, vec![("this".to_string(), this.clone())]);
                 new_self.resolve_node(&method.orig_node);
                 new_self.expected_return_type = ExprType::Null;
+                new_self.scope.pop_scope();
             }
-            new_self.callables.insert(name, Box::new(class) as Box<dyn Call>);
+            new_self.callables.insert(name.to_string(), Box::new(class) as Box<dyn Call>);
+            
             new_self.scope.pop_scope();
         }
         for node in &ast.nodes {
@@ -262,9 +272,20 @@ impl<'a> Resolver<'a> {
                 let left_span = left.just_span_data();
                 let left = self.resolve_expr(&left)?;
                 let obj = match &left {
+                    ExprType::ClassThis => {
+                        println!("{:?}", self.scope);
+                        match dbg!(self.scope.get_var("this")) {
+                            Ok(v) => match dbg!(&v.ty) {
+                                ExprType::Class(c) => c,
+                                _ => panic!(),
+                            },
+                            _ => return Err(Spanned::from_other_span(
+                                CTError::new(CTErrorKind::CantUseGet), &left_span))
+                        }
+                    }
                     ExprType::Class(a) => a,
                     ExprType::Pointer { points_to, is_mut: _ } => {
-                        match points_to.as_ref() {
+                        match dbg!(points_to.as_ref()) {
                             ExprType::Class(a) => a,
                             _ => return Err(Spanned::from_other_span(
                                 CTError::new(CTErrorKind::CantUseGet), &left_span))
@@ -587,7 +608,7 @@ impl<'a> Resolver<'a> {
         let parts = name.split('.').collect::<Vec<_>>();
         if parts.len() != 2 { panic!() }
         let (class_name, method) = (parts[0], parts[1]);
-        self.callables.get(class_name).unwrap().as_obj().unwrap()
+        self.callables.get(class_name).unwrap().as_class().unwrap()
             .methods
             .get(method)
             .map(|method| method as &dyn Call)

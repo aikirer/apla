@@ -21,13 +21,28 @@ use super::{ast::{Ast, AstNode, stmt::Stmt, expr::Expr}, util::{scope::Scope, va
 
 type Classes = HashMap<String, ParsedClass>;
 
-pub fn translate_node_method_calls(node: &mut AstNode, classes: &Classes) {
+pub fn translate_node_method_calls(
+    node: &mut AstNode, 
+    classes: &Classes,
+    starting_vars: Vec<(String, Variable)>,
+) 
+{
     let mut scope = Scope::new();
+    for (name, var) in starting_vars {
+        scope.add_var(&name, var);
+    }
     translate_node(node, &mut scope, classes);
 }
 
-pub fn translate_ast_method_calls(ast: &mut Ast, classes: &Classes) {
+pub fn translate_ast_method_calls(ast: &mut Ast, 
+    classes: &Classes,
+    starting_vars: Vec<(String, Variable)>,
+) 
+{
     let mut scope = Scope::new();
+    for (name, var) in starting_vars {
+        scope.add_var(&name, var);
+    }
     for node in &mut ast.nodes {
         translate_node(node, &mut scope, classes);
     }

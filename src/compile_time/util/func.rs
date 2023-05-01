@@ -139,8 +139,4 @@ impl Call for ParsedFunc {
     fn get_return_type(&self, _node: &Spanned<Expr>) -> ExprType {
         self.return_type.clone()
     }
-
-    fn as_obj(&self) -> Option<&crate::class::ParsedClass> {
-        None
-    }
 }

@@ -213,8 +213,4 @@ impl Call for Std {
             _ => panic!(),
         }
     }
-
-    fn as_obj(&self) -> Option<&crate::class::ParsedClass> {
-        None
-    }
 }

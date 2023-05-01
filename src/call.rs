@@ -24,5 +24,10 @@ where
 
     fn call(&self, vm: &mut VM) -> Result<StackVal, RTError>;
 
-    fn as_obj(&self) -> Option<&ParsedClass>;
+    fn as_class(&self) -> Option<&ParsedClass> {
+        None
+    }
+    fn as_class_mut(&mut self) -> Option<&mut ParsedClass> {
+        None
+    }
 }

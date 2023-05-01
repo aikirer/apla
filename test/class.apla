@@ -1,14 +1,21 @@
 class A {
     var x: int;
 
-    func square(x: int) int { 
-        return this.x * x;
+    func square() int { 
+        return this.x * this.x;
+    }
+
+    func change_by_one() {
+        this.x += 1;
     }
 }
 
 var a = A();
-#a.x = 3;
-#std(print(a.x));
-#a.x = a.x * a.x;
-#std(print(a.x));
-std(print(a.square(3)));
+a.x = 3;
+std(print(a.x));
+a.x = a.x * a.x;
+std(print(a.x));
+std(print(a.square()));
+var a_ptr = @a;
+a_ptr.change_by_one();
+std(print(a.square()));

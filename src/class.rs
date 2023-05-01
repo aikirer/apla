@@ -88,7 +88,11 @@ impl Call for ParsedClass {
         Ok(StackVal::Object(Rc::new(RefCell::new(object))))
     }
 
-    fn as_obj(&self) -> Option<&ParsedClass> {
+    fn as_class(&self) -> Option<&ParsedClass> {
+        Some(self)
+    }
+
+    fn as_class_mut(&mut self) -> Option<&mut ParsedClass> {
         Some(self)
     }
 }

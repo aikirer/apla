@@ -15,7 +15,7 @@ impl<'a> Ctx<'a> {
             let parts = name.split('.').collect::<Vec<_>>();
             if parts.len() != 2 { panic!() }
             let (class_name, method) = (parts[0], parts[1]);
-            self.callables.get(class_name).unwrap().as_obj().unwrap()
+            self.callables.get(class_name).unwrap().as_class().unwrap()
                 .methods
                 .get(method)
                 .map(|method| method as &dyn Call)
