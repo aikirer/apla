@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::method_translator::{translate_ast_method_calls, translate_node_method_calls};
 
-use crate::{spanned::Spanned, expr_type::ExprType, call::Call, apla_std::Std, class::{Class, ParsedClass}, named_obj_container::NamedObjContainer};
+use crate::{spanned::Spanned, expr_type::{ExprType, self}, call::Call, apla_std::Std, class::{Class, ParsedClass}, named_obj_container::NamedObjContainer};
 
 use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, ast::{Ast, AstNode, expr::{Expr, Operator}, stmt::Stmt}, error::{CTError, CTErrorKind, report_error}};
 
@@ -33,16 +33,30 @@ impl<'a> Resolver<'a> {
             had_error: false,
             expected_return_type: ExprType::Null,
         };
+
+        let parsed_classes = classes.into_iter()
+            .map(|(name, c)| (name, new_self.parse_class(c)))
+            .collect::<HashMap<_, _>>();
+
+        // The cloning is (hopefully) temporary, because this is terrible.
+        let classes = parsed_classes.clone();
+        for (name, mut class) in parsed_classes {
+            let this = Variable::new(ExprType::Class(class.clone()), false, true);
+            for (_, method) in &mut class.methods {
+                translate_node_method_calls(
+                    &mut method.orig_node, &classes, vec![("this".to_string(), this.clone())]);    
+            }
+            new_self.callables.insert(name, Box::new(class));
+        }
+
         let functions = functions
             .into_iter()
             .map(|(name, func)| 
                 (name.to_string(), (func.clone(), new_self.parse_func(func)))
             )
             .collect::<HashMap<_, _>>();
-
-        let parsed_classes = classes.into_iter()
-            .map(|(name, c)| (name, new_self.parse_class(c)))
-            .collect::<HashMap<_, _>>();
+         
+        
         for (name, (orig_func, parsed_func)) in functions {
             new_self.scope.add_scope();
             for arg in parsed_func.args.iter() {
@@ -50,20 +64,18 @@ impl<'a> Resolver<'a> {
             }
             new_self.expected_return_type = parsed_func.return_type.clone();
             new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
-            translate_ast_method_calls(ast, &parsed_classes, vec![]);
+            translate_ast_method_calls(ast, &classes, vec![]);
             new_self.resolve_node(&orig_func.node);
             new_self.scope.pop_scope();
             new_self.expected_return_type = ExprType::Null;
         };
 
-        translate_ast_method_calls(ast, &parsed_classes, vec![]);            
-        // The cloning is (hopefully) temporary, because this is terrible.
-        let classes = parsed_classes.clone();
-        for (name, mut class) in parsed_classes {
+        translate_ast_method_calls(ast, &classes, vec![]);           
+        for (_, class) in &classes {
             let this = Variable::new(ExprType::Class(class.clone()), false, true);
             new_self.scope.add_scope();
             new_self.scope.add_var("this", this.clone());
-            for (_, method) in &mut class.methods {
+            for (_, method) in &class.methods {
                 new_self.scope.add_scope();
                 for (name, var) in method.args.iter() {
                     if var.ty != ExprType::ClassThis {
@@ -71,14 +83,10 @@ impl<'a> Resolver<'a> {
                     }
                 }
                 new_self.expected_return_type = method.return_type.clone();
-                translate_node_method_calls(
-                    &mut method.orig_node, &classes, vec![("this".to_string(), this.clone())]);
                 new_self.resolve_node(&method.orig_node);
                 new_self.expected_return_type = ExprType::Null;
                 new_self.scope.pop_scope();
             }
-            new_self.callables.insert(name.to_string(), Box::new(class) as Box<dyn Call>);
-            
             new_self.scope.pop_scope();
         }
         for node in &ast.nodes {
@@ -150,7 +158,7 @@ impl<'a> Resolver<'a> {
 
     fn parse_func(&mut self, func: &Func) -> ParsedFunc {
         let args = self.parse_func_args(&func.args);
-        let ret_type = match ExprType::try_from(func.return_type.as_ref()) {
+        let ret_type = match self.str_to_type(&func.return_type) {
             Ok(ty) => {
                 if ty == ExprType::ToBeInferred {
                     self.report_error(&Spanned::new(
@@ -160,11 +168,8 @@ impl<'a> Resolver<'a> {
                 }
                 ty
             },
-            Err(_) => {
-                self.report_error(&Spanned::from_other_span(
-                    CTError::new(CTErrorKind::ExpectedType),
-                    &func.return_type,
-                ));
+            Err(er) => {
+                self.report_error(&Spanned::from_other_span(er, &func.return_type));
                 ExprType::Null
             },
         };
@@ -274,8 +279,8 @@ impl<'a> Resolver<'a> {
                 let obj = match &left {
                     ExprType::ClassThis => {
                         println!("{:?}", self.scope);
-                        match dbg!(self.scope.get_var("this")) {
-                            Ok(v) => match dbg!(&v.ty) {
+                        match self.scope.get_var("this") {
+                            Ok(v) => match &v.ty {
                                 ExprType::Class(c) => c,
                                 _ => panic!(),
                             },
@@ -285,7 +290,7 @@ impl<'a> Resolver<'a> {
                     }
                     ExprType::Class(a) => a,
                     ExprType::Pointer { points_to, is_mut: _ } => {
-                        match dbg!(points_to.as_ref()) {
+                        match points_to.as_ref() {
                             ExprType::Class(a) => a,
                             _ => return Err(Spanned::from_other_span(
                                 CTError::new(CTErrorKind::CantUseGet), &left_span))
@@ -463,7 +468,7 @@ impl<'a> Resolver<'a> {
         let init = value.is_some();
         let var_type;
         if value.is_none() {
-            match ExprType::try_from(ty as &str) {
+            match self.str_to_type(&ty) {
                 Ok(t) => {
                     if t == ExprType::ToBeInferred {
                         self.report_error(&Spanned::new(CTError::new(
@@ -474,14 +479,14 @@ impl<'a> Resolver<'a> {
                     var_type = t;
                 },
                 Err(er) => {
-                    self.report_error(&Spanned::new(er, stmt.start, stmt.len));
+                    self.report_error(&Spanned::from_other_span(er, stmt));
                     poisoned = true;
                     var_type = ExprType::ToBeInferred;
                 },
             }
         } else {
             let value = value.as_ref().unwrap();
-            match ExprType::try_from(ty as &str) {
+            match self.str_to_type(&ty) {
                 Ok(mut t) => {
                     match self.resolve_expr(value) {
                         Ok(t2) => {
@@ -504,7 +509,7 @@ impl<'a> Resolver<'a> {
                     var_type = t
                 },
                 Err(er) => {
-                    self.report_error(&Spanned::new(er, ty.start, ty.len));
+                    self.report_error(&Spanned::from_other_span(er, ty));
                     poisoned = true;
                     var_type = ExprType::Int
                 },
@@ -592,7 +597,7 @@ impl<'a> Resolver<'a> {
 
     fn get_callable(&self, name: &str) -> Option<&dyn Call> {
         if name.contains('.') {
-            Some(self.get_method(name))
+            self.get_method(name)
         } else {
             self.get_boxed_callable(name)
                 .map(|callable| callable.as_ref())
@@ -604,7 +609,7 @@ impl<'a> Resolver<'a> {
     }
 
     // FORMAT: 'foo.bar()' in source code is 'Foo.bar(foo)' here
-    fn get_method(&self, name: &str) -> &dyn Call {
+    fn get_method(&self, name: &str) -> Option<&dyn Call> {
         let parts = name.split('.').collect::<Vec<_>>();
         if parts.len() != 2 { panic!() }
         let (class_name, method) = (parts[0], parts[1]);
@@ -612,7 +617,6 @@ impl<'a> Resolver<'a> {
             .methods
             .get(method)
             .map(|method| method as &dyn Call)
-            .unwrap()
     }
 
     fn get_var<T>(
@@ -624,6 +628,29 @@ impl<'a> Resolver<'a> {
             Err(kind) => Err(Spanned::from_other_span(
                 CTError::new(kind), span_for_err
             )),
+        }
+    }
+
+    fn str_to_type(&self, name: &str) -> Result<ExprType, CTError> {
+        match self.get_type(name) {
+            Some(ty) => Ok(ty),
+            None => Err(CTError::new(CTErrorKind::ExpectedType))
+        }
+    }
+
+    fn get_type(&self, name: &str) -> Option<ExprType> {
+        if name.is_empty() {
+            return None;
+        }
+        let (is_pointer, mut_pointer, name) = expr_type::extract_type_data_from_str(name);
+        
+        match ExprType::try_from(name) {
+            Ok(n) => Some(n),
+            Err(_) => {
+                self.get_callable(name)?.as_class()
+                    .map(|class| ExprType::Class(class.clone()))
+                    .map(|ty| if is_pointer { ty.as_pointer(mut_pointer) } else { ty })
+            }
         }
     }
 }

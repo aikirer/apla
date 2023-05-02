@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{compile_time::{error::{CTError, CTErrorKind}, self}, class::ParsedClass};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum ExprType {
     Int, Float, String, Bool, ToBeInferred, Any, Null,
     ClassThis,
@@ -57,6 +57,18 @@ impl Display for ExprType {
     }
 }
 
+pub fn extract_type_data_from_str(str: &str) -> (bool, bool, &str) {
+    if str.get(0..1) == Some("^") {
+        if str.get(1..4) == Some("mut") {
+            (true, true, &str[5..]) // skip whitespace after mut
+        } else {
+            (true, false, &str[1..])
+        }
+    } else {
+        (false, false, str)
+    }
+}
+
 impl TryFrom<&str> for ExprType {
     type Error = CTError;
     // This is terrible
@@ -65,15 +77,7 @@ impl TryFrom<&str> for ExprType {
         if value.is_empty() {
             return error;
         }
-        let (is_pointer, mut type_str) = if value.chars().next().unwrap() == '^' {
-            (true, &value[1..])
-        } else {
-            (false, value)
-        };
-        let mut_pointer = if type_str.get(0..=2) == Some("mut") {
-            type_str = &type_str[4..]; // 'mut '
-            true
-        } else { false };
+        let (is_pointer, mut_pointer, type_str) = extract_type_data_from_str(value);
         let matched_type = match type_str {
             "int" => Self::Int,
             "float" => Self::Float,
@@ -91,6 +95,35 @@ impl TryFrom<&str> for ExprType {
             })
         } else {
             Ok(matched_type)
+        }
+    }
+}
+
+impl PartialEq for ExprType {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Self::Class(a) => match other {
+                Self::Class(b) => a.name == b.name,
+                _ => false,
+            }
+            Self::Pointer { points_to, is_mut: _ } => {
+                let points_to_first = points_to;
+                match other {
+                    Self::Pointer { points_to, is_mut: _ } => points_to == points_to_first,
+                    _ => false,
+                }
+            },
+            _ => match (self, other) {
+                (ExprType::Int, ExprType::Int) |
+                (ExprType::Float, ExprType::Float) |
+                (ExprType::String, ExprType::String) |
+                (ExprType::Bool, ExprType::Bool) |
+                (ExprType::ToBeInferred, ExprType::ToBeInferred) |
+                (ExprType::Any, ExprType::Any) |
+                (ExprType::Null, ExprType::Null) |
+                (ExprType::ClassThis, ExprType::ClassThis) => true,
+                _ => false,
+            }
         }
     }
 }
