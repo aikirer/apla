@@ -119,8 +119,7 @@ impl Display for CTErrorKind {
 }
 
 pub fn report_error(error: &Spanned<CTError>, files: &Vec<(String, String)>) {
-    println!("{error:?}");
-    let (file_name, text) = &files[error.file_id as usize];
+    let (file_name, text) = &files[error.file_id.try_into().unwrap_or(0)];
     print!(" | [error] {}", **error);
     let mut at_char = error.start;
     let mut at_char_on_new_line = at_char;

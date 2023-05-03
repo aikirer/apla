@@ -31,7 +31,7 @@ pub fn parse_file(
     let scanner = Scanner::new(&input); 
     let mut tokens = crate::measure_time!(scanner.scan(), "scanning");
     for token in tokens.iter_mut() {
-        token.file_id = parsed_files.len().try_into().unwrap();
+        token.file_id = (parsed_files.len() - 1).try_into().unwrap();
     }
     let parser = Parser::new(&tokens, &input, parsing_file, parsed_files);
     let (ast, had_error, functions, classes, files) = {

@@ -56,21 +56,22 @@ impl Resolver {
             )
             .collect::<HashMap<_, _>>();
         
-        let mut nodes_to_resolve = vec![];
+        let mut function_to_resolve = vec![];
 
-        for (name, (orig_func, parsed_func)) in functions {
+        for (name, (_, parsed_func)) in functions {
+            function_to_resolve.push(parsed_func.clone());
+            new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
+
+        };
+        for func in function_to_resolve {
             new_self.scope.add_scope();
-            for arg in parsed_func.args.iter() {
+            new_self.expected_return_type = func.return_type.clone();
+            for arg in func.args.iter() {
                 new_self.scope.add_var(&arg.0, arg.1.clone());
             }
-            new_self.expected_return_type = parsed_func.return_type.clone();
-            new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
-            nodes_to_resolve.push(orig_func.node.clone());
-            new_self.scope.pop_scope();
+            new_self.resolve_node(&func.orig_node);
             new_self.expected_return_type = ExprType::Null;
-        };
-        for node in nodes_to_resolve {
-            new_self.resolve_node(&node);
+            new_self.scope.pop_scope();
         }
         
         translate_ast_method_calls(ast, &classes, vec![]);           
@@ -573,7 +574,7 @@ impl Resolver {
                 match expr.obj_ref() {
                     Expr::Var(v) => {
                         let var = self.get_var(&v, expr)?;
-                        match var.ty {
+                        match &var.ty {
                             ExprType::Pointer { points_to: _, is_mut } => {
                                 if !is_mut {
                                     return Err(Spanned::from_other_span(
@@ -582,7 +583,7 @@ impl Resolver {
                                     ));
                                 }
                             },
-                            _ => todo!(),
+                            other => todo!("deref for {other:?}"),
                         }
                         self.get_var(v, &expr)
                     },
@@ -649,9 +650,13 @@ impl Resolver {
             return None;
         }
         let (is_pointer, mut_pointer, name) = expr_type::extract_type_data_from_str(name);
-        
         match ExprType::try_from(name) {
-            Ok(n) => Some(n),
+            Ok(mut n) => {
+                if is_pointer {
+                    n = n.as_pointer(mut_pointer);
+                }
+                Some(n)
+            },
             Err(_) => {
                 self.get_callable(name)?.as_class()
                     .map(|class| ExprType::Class(class.clone()))
