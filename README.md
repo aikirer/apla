@@ -148,6 +148,14 @@ string.print();
 -----------------------------------------------------------
 Hello, world! again
 ```
+## std functions
+The std is really small and it consists of a few small native functions:
+* `print(any)`
+* `rust_dbg_print(any)`
+* `read() [reads input]`
+* `str_to_int(str)`
+
+the *any* type cannot be used in normal apla programs and is special to the std functions
 ## Known issues
 * It's not checked whether a return statement is present at the end of a function.
 * Displaying errors might fail since introducing the `import` keyword, only for syntax errors (parsing phase)
