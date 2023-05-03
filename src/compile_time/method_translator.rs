@@ -13,6 +13,8 @@
 // exist or the method doesn't exist, the program doesn't care about here
 // and it will be resolved in the next step ("3." above)
 
+// This should have been a struct
+
 use std::collections::HashMap;
 
 use crate::{class::ParsedClass, call::Call, expr_type::ExprType, spanned::Spanned};
@@ -24,6 +26,7 @@ type Classes = HashMap<String, ParsedClass>;
 pub fn translate_node_method_calls(
     node: &mut AstNode, 
     classes: &Classes,
+    callables: &HashMap<String, Box<dyn Call>>,
     starting_vars: Vec<(String, Variable)>,
 ) 
 {
@@ -31,11 +34,12 @@ pub fn translate_node_method_calls(
     for (name, var) in starting_vars {
         scope.add_var(&name, var);
     }
-    translate_node(node, &mut scope, classes);
+    translate_node(node, &mut scope, classes, callables);
 }
 
 pub fn translate_ast_method_calls(ast: &mut Ast, 
     classes: &Classes,
+    callables: &HashMap<String, Box<dyn Call>>,
     starting_vars: Vec<(String, Variable)>,
 ) 
 {
@@ -44,7 +48,7 @@ pub fn translate_ast_method_calls(ast: &mut Ast,
         scope.add_var(&name, var);
     }
     for node in &mut ast.nodes {
-        translate_node(node, &mut scope, classes);
+        translate_node(node, &mut scope, classes, callables);
     }
 }
 
@@ -57,72 +61,84 @@ fn translate_to_desired_form(node: &mut Spanned<Expr>, scope: &mut Scope) {
     *node = Spanned::from_other_span(new_node, &span);
 }
 
-fn translate_expr(node: &mut Spanned<Expr>, scope: &mut Scope, classes: &Classes) {
+fn translate_expr(
+    node: &mut Spanned<Expr>, scope: &mut Scope, classes: &Classes,
+    callables: &HashMap<String, Box<dyn Call>>
+) 
+{
     match node.obj_mut() {
         Expr::Binary { op: _, left, right } => {
-            translate_expr(left, scope, classes);
-            translate_expr(right, scope, classes);
+            translate_expr(left, scope, classes, callables);
+            translate_expr(right, scope, classes, callables);
         },
-        Expr::Unary { expr } => translate_expr(expr, scope, classes),
+        Expr::Unary { expr } => translate_expr(expr, scope, classes, callables),
         Expr::Call { name: _, args } => {
             for arg in args {
-                translate_expr(arg, scope, classes);
+                translate_expr(arg, scope, classes, callables);
             }
         },
         Expr::Index { object, i } => {
-            translate_node(&mut *object, scope, classes);
-            translate_expr(i, scope, classes);
+            translate_node(&mut *object, scope, classes, callables);
+            translate_expr(i, scope, classes, callables);
         },
         Expr::Get { left, right } => {
-            translate_expr(left, scope, classes);
-            translate_expr(right, scope, classes);
+            translate_expr(left, scope, classes, callables);
+            translate_expr(right, scope, classes, callables);
             translate_to_desired_form(node, scope);
         },
-        Expr::MakePointer { expr, is_mut: _ } => translate_expr(&mut *expr, scope, classes),
-        Expr::Deref { expr } => translate_expr(&mut *expr, scope, classes),
-        Expr::This { callee } => translate_expr(&mut *callee, scope, classes),
+        Expr::MakePointer { expr, is_mut: _ } => translate_expr(&mut *expr, scope, classes, callables),
+        Expr::Deref { expr } => translate_expr(&mut *expr, scope, classes, callables),
+        Expr::This { callee } => translate_expr(&mut *callee, scope, classes, callables),
         _ => (),
     }
 }
 
-fn translate_nodes(nodes: &mut Vec<AstNode>, scope: &mut Scope, classes: &Classes) {
+fn translate_nodes(
+    nodes: &mut Vec<AstNode>, scope: &mut Scope, 
+    classes: &Classes, callables: &HashMap<String, Box<dyn Call>>
+) 
+{
     for node in nodes {
-        translate_node(node, scope, classes);
+        translate_node(node, scope, classes, callables);
     }
 }
 
-fn translate_node(node: &mut AstNode, scope: &mut Scope, classes: &Classes) {
+fn translate_node(
+    node: &mut AstNode, scope: &mut Scope, classes: &Classes, 
+    callables: &HashMap<String, Box<dyn Call>>
+) 
+{
     match node {
-        AstNode::Expr(e) => translate_expr(e, scope, classes),
+        AstNode::Expr(e) => translate_expr(e, scope, classes, callables),
         AstNode::Stmt(s) => match s.obj_mut() {
             Stmt::Block { nodes } => {
                 scope.add_scope();
-                translate_nodes(nodes, scope, classes);
+                translate_nodes(nodes, scope, classes, callables);
                 for node in nodes {
-                    translate_node(node, scope, classes);
+                    translate_node(node, scope, classes, callables);
                 }
                 scope.pop_scope();
             },
             Stmt::VarCreation { is_mut: _, name: _, ty: _, value: _ } => 
-                create_var_if_obj(&s, classes, scope),
+                create_var_if_obj(&s, classes, scope, callables),
             Stmt::Assignment { left, right } => {
                 for element in [left, right] {
-                    translate_expr(element, scope, classes);
+                    translate_expr(element, scope, classes, callables);
                 }
             },
             Stmt::If { condition, true_branch, false_branch } => {
-                translate_expr(condition, scope, classes);
-                translate_node(&mut *true_branch, scope, classes);
+                translate_expr(condition, scope, classes, callables);
+                translate_node(&mut *true_branch, scope, classes, callables);
                 if let Some(branch) = false_branch {
-                    translate_node(&mut *branch, scope, classes);
+                    translate_node(&mut *branch, scope, classes, callables);
                 }
             },
             Stmt::Return { val } => if let Some(val) = val {
-                translate_expr(val, scope, classes)
+                translate_expr(val, scope, classes, callables)
             },
             Stmt::While { condition, body } => {
-                translate_expr(condition, scope, classes);
-                translate_node(&mut *body, scope, classes);
+                translate_expr(condition, scope, classes, callables);
+                translate_node(&mut *body, scope, classes, callables);
             },
             Stmt::Break | Stmt::Continue | Stmt::Poison => (),
             
@@ -181,7 +197,7 @@ fn try_to_get_var<'a>(node: &Expr, scope: &'a Scope) -> Option<&'a Variable> {
 }
 
 
-fn create_var_if_obj(node: &Stmt, classes: &Classes, scope: &mut Scope) {
+fn create_var_if_obj(node: &Stmt, classes: &Classes, scope: &mut Scope, callables: &HashMap<String, Box<dyn Call>>,) {
     match node {
         Stmt::VarCreation { is_mut, name, ty: _, value } => {
             let var_name = name;
@@ -190,6 +206,15 @@ fn create_var_if_obj(node: &Stmt, classes: &Classes, scope: &mut Scope) {
                     Expr::Call { name, args: _ } => {
                         if let Some(class) = classes.get(&**name) {
                             let ty = class.get_return_type(value);
+                            let var = Variable::new(ty, *is_mut, true);
+                            scope.add_var(var_name, var);
+                        }
+                        else if let Some(callable) = callables.get(&**name) {  
+                            let ty = callable.get_return_type(value);
+                            match ty {
+                                ExprType::Class(_) => (),
+                                _ => return,
+                            }
                             let var = Variable::new(ty, *is_mut, true);
                             scope.add_var(var_name, var);
                         }

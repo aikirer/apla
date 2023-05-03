@@ -23,7 +23,6 @@ impl Resolver {
         files: Vec<(String, String)>
     ) ->  Result<HashMap<String, Box<dyn Call>>, ()>
     {
-        // translate_ast_method_calls(ast, classes)
         let mut callables = HashMap::new();
         callables.insert("std".to_string(), Box::new(apla_std) as Box<dyn Call>);
         let mut new_self = Self {
@@ -44,7 +43,11 @@ impl Resolver {
             let this = Variable::new(ExprType::Class(class.clone()), false, true);
             for (_, method) in &mut class.methods {
                 translate_node_method_calls(
-                    &mut method.orig_node, &classes, vec![("this".to_string(), this.clone())]);    
+                    &mut method.orig_node, 
+                    &classes, 
+                    &new_self.callables,
+                    vec![("this".to_string(), this.clone())]
+                );    
             }
             new_self.callables.insert(name, Box::new(class));
         }
@@ -74,7 +77,8 @@ impl Resolver {
             new_self.scope.pop_scope();
         }
         
-        translate_ast_method_calls(ast, &classes, vec![]);           
+        translate_ast_method_calls(ast, &classes, &new_self.callables, vec![]);   
+
         for (_, class) in &classes {
             let this = Variable::new(ExprType::Class(class.clone()), false, true);
             new_self.scope.add_scope();
