@@ -15,17 +15,11 @@ use super::{
 };
 
 macro_rules! do_or_report_and {
-    ($self: expr, $action: expr => $and: block) => {
+    ($self: expr, $action: expr => $and: stmt) => {
         if let Err(er) = $action {
             $self.report_error(&er);
-            $and;
+            $and
         }
-    };
-    ($self: expr, $action: expr => $and: block on_true => $else: block) => {
-        if let Err(er) = $action {
-            $self.report_error(&er);
-            $and;
-        } else { $else; }
     };
 }
 
@@ -50,11 +44,19 @@ pub struct Parser<'a> {
     pub ast: Ast,
     pub txt: &'a str,
     pub had_error: bool,
+    pub new_parsed_files: Vec<(String, String)>,
     at: usize,
+    parsed_files: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [SpanToken], txt: &'a str) -> Self {
+    pub fn new(
+        tokens: &'a [SpanToken], 
+        txt: &'a str,
+        parsing_file: &'a str,
+        parsed_files: &'a [&'a str]
+    ) -> Self 
+    {
         Self {
             tokens,
             current: &tokens[0],
@@ -65,11 +67,12 @@ impl<'a> Parser<'a> {
             txt,
             had_error: false,
             at: 0,
+            parsed_files: parsed_files.iter().map(|s| s.to_string()).collect(),
+            new_parsed_files: vec![(parsing_file.to_string(), txt.to_string())],
         }
     }
 
     pub fn parse(mut self) -> Self {
-        self.ast.text = Some(self.txt.to_string());
         let block = self.stmt_block(&[]);
         self.ast.nodes.extend(block);
         self
@@ -92,10 +95,7 @@ impl<'a> Parser<'a> {
                         None => {
                             self.advance();
                             self.report_error(
-                                &Spanned::new(er, 
-                                    self.previous.start, 
-                                    self.previous.len
-                                )
+                                &Spanned::from_other_span(er, self.previous)
                             );
                         }
                     }
@@ -120,6 +120,10 @@ impl<'a> Parser<'a> {
             Token::While => Ok(Some(self.while_stmt())),
             Token::Continue => Ok(Some(self.continue_stmt())),
             Token::Break => Ok(Some(self.break_stmt())),
+            Token::Import => {
+                self.import();
+                Ok(None)
+            },
             Token::Func => {
                 // so hacky
                 let func = match self.func_dec() {
@@ -171,17 +175,17 @@ impl<'a> Parser<'a> {
                 match stmt {
                     Some(stmt) => stmt,
                     None => {
-                        self.report_error(&Spanned::new(
+                        self.report_error(&Spanned::from_other_span(
                             CTError::new(CTErrorKind::ExpectedStmt),
-                            self.current.start, self.current.len,
+                            self.current,
                         ));
                         AstNode::Stmt(Stmt::poison())
                     }
                 }
             },
             Err(er) => {
-                self.report_error(&Spanned::new(
-                    er.0, self.current.start, self.current.len
+                self.report_error(&Spanned::from_other_span(
+                    er.0, self.current
                 ));
                 AstNode::Stmt(Stmt::poison())
             }
@@ -189,6 +193,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> Result<Spanned<String>, Spanned<CTError>> {
+        let file_id = self.current.file_id;
         let (pointer, mut_pointer) = if self.current.obj_ref() == &Token::Caret {
             self.advance();
             if self.current.obj_ref() == &Token::Mut {
@@ -214,13 +219,14 @@ impl<'a> Parser<'a> {
                 ty = "^".to_string() + &ty;
             }
         }
-        Ok(Spanned::new(ty.to_string(), start, end))
+        Ok(Spanned::new_with_file_id(ty.to_string(), start, end, file_id))
     }
 
     fn parse_var_name_and_type(
         &mut self, start: usize, end: usize
     ) -> Result<(Spanned<String>, Spanned<String>), AstNode>
     {
+        let file_id = self.current.file_id;
         let name = match self.consume_ident() {
             Ok(n) => n,
             Err(er) => {
@@ -228,8 +234,8 @@ impl<'a> Parser<'a> {
                 return Err(AstNode::Stmt(Spanned::new_poisoned(Stmt::Poison, 0, 0)));
             }
         };
-        let name = Spanned::new(name.to_string(), start, end);
-        let default_type = Spanned::new("_".to_string(), 0, 0);
+        let name = Spanned::new_with_file_id(name.to_string(), start, end, file_id);
+        let default_type = Spanned::new_with_file_id("_".to_string(), 0, 0, file_id);
         let ty = if self.current.obj_ref() == &Token::Colon {
             self.advance();
             self.parse_type().unwrap_or(default_type)
@@ -247,14 +253,15 @@ impl<'a> Parser<'a> {
                 return er;
             }
         };
-        let span = Spanned::new(
+        let file_id = self.current.file_id;
+        let span = Spanned::new_with_file_id(
             Stmt::VarCreation { 
                 is_mut: mutable,
                 name, 
                 ty, 
                 value: None,
             }, 
-            start, self.previous.start - start + self.previous.len
+            start, self.previous.start - start + self.previous.len, file_id
         );
         AstNode::Stmt(span)
     }
@@ -283,14 +290,15 @@ impl<'a> Parser<'a> {
             },
             Err(_) => None
         };
-        let mut span = Spanned::new(
+        let file_id = self.current.file_id;
+        let mut span = Spanned::new_with_file_id(
             Stmt::VarCreation { 
                 is_mut: mutable,
                 name, 
                 ty, 
                 value: expr,
             }, 
-            start, self.previous.start - start + self.previous.len
+            start, self.previous.start - start + self.previous.len, file_id
         );
         if let Err(er) = self.consume(&Token::Semicolon) {
             self.report_error(&er);
@@ -306,9 +314,10 @@ impl<'a> Parser<'a> {
         }
         let start = self.current.start;
         let nodes = self.stmt_block(&[Token::RightBrace]);
-        AstNode::Stmt(Spanned::new(
+        let file_id = self.current.file_id;
+        AstNode::Stmt(Spanned::new_with_file_id(
             Stmt::Block { nodes }, start, 
-            self.current.start - start + self.current.len
+            self.current.start - start + self.current.len, file_id
         ))
     }
     
@@ -320,33 +329,32 @@ impl<'a> Parser<'a> {
             Some(expr) => expr,
             None => {
                 self.report_error(
-                    &Spanned::new(
+                    &Spanned::from_other_span(
                         CTError::new(CTErrorKind::ExpectedExpr),
-                        self.current.start, self.current.len
+                        self.current
                     )
                 );
                 return AstNode::Stmt(Stmt::poison())
             }
         };
-        let true_branch;
         let mut false_branch = None;
-        do_or_report_and!(self, self.consume(&Token::RightParen) => {
-            true_branch = Box::new(AstNode::Stmt(Stmt::poison()))
-        } on_true => {
-            true_branch = Box::new(self.safe_stmt());
-        });
+        let true_branch = match self.consume(&Token::RightParen) {
+            Ok(_) => Box::new(self.safe_stmt()),
+            Err(_) => Box::new(AstNode::Stmt(Stmt::poison()))
+        };
         if self.current.obj_ref() == &Token::Else {
             self.advance();
             false_branch = Some(Box::new(self.safe_stmt()));
         }
+        let file_id = self.current.file_id;
         AstNode::Stmt(
-            Spanned::new(
+            Spanned::new_with_file_id(
                 Stmt::If { 
                     condition, 
                     true_branch, 
                     false_branch
                 },
-                start, self.current.start - start + self.current.len
+                start, self.current.start - start + self.current.len, file_id
             )
         )
     }
@@ -372,10 +380,11 @@ impl<'a> Parser<'a> {
             }
         };
         let len = self.previous.start + self.previous.len - return_span.start;
+        let file_id = self.current.file_id;
         AstNode::Stmt(
-            Spanned::new(
+            Spanned::new_with_file_id(
                 Stmt::Return { val: expr },    
-                return_span.start, len
+                return_span.start, len, file_id
             )
         )
     }
@@ -388,9 +397,9 @@ impl<'a> Parser<'a> {
             Some(expr) => expr,
             None => {
                 self.report_error(
-                    &Spanned::new(
+                    &Spanned::from_other_span(
                         CTError::new(CTErrorKind::ExpectedExpr),
-                        self.current.start, self.current.len
+                        self.current
                     )
                 );
                 return AstNode::Stmt(Stmt::poison())
@@ -398,11 +407,12 @@ impl<'a> Parser<'a> {
         };
         do_or_report_and_return!(self, self.consume(&Token::RightParen));
         let body = Box::new(self.safe_stmt());
-        AstNode::Stmt(Spanned::new(
+        let file_id = self.current.file_id;
+        AstNode::Stmt(Spanned::new_with_file_id(
             Stmt::While { 
                 condition, body 
             },
-            start, self.current.start - start + self.current.len
+            start, self.current.start - start + self.current.len, file_id
         ))
     }
 
@@ -414,7 +424,8 @@ impl<'a> Parser<'a> {
             do_or_report_and!(self, self.consume(&Token::Semicolon) => {});
             Spanned::get_start_and_len(&start_span, &next_span)
         };
-        AstNode::Stmt(Spanned::new(Stmt::Continue, start, len))
+        let file_id = self.current.file_id;
+        AstNode::Stmt(Spanned::new_with_file_id(Stmt::Continue, start, len, file_id))
     }
 
     fn break_stmt(&mut self) -> AstNode {
@@ -425,7 +436,38 @@ impl<'a> Parser<'a> {
             do_or_report_and!(self, self.consume(&Token::Semicolon) => {});
             Spanned::get_start_and_len(&start_span, &next_span)
         };
-        AstNode::Stmt(Spanned::new(Stmt::Break, start, len))
+        let file_id = self.current.file_id;
+        AstNode::Stmt(Spanned::new_with_file_id(Stmt::Break, start, len, file_id))
+    }
+
+    fn import(&mut self) {
+        do_or_report_and!(self, self.consume(&Token::Import) => return);
+        let file_path = match self.consume_str() {
+            Ok(s) => s.to_string() + ".apla",
+            Err(er) => {
+                self.report_error(&er);
+                return;
+            }
+        };
+        do_or_report_and!(self, self.consume(&Token::Semicolon) => ());
+        if self.parsed_files.contains(&file_path) {
+            return;
+        }
+        self.parsed_files.push(file_path.to_string());
+        let file = match std::fs::read_to_string(file_path.to_string()) {
+            Ok(content) => content,
+            Err(_) => todo!(),
+        };
+        let parsed_files = self.parsed_files.iter().map(|str| str.as_ref()).collect::<Vec<&_>>();
+        let (_, had_error, functions, classes, files) = crate::parse_file(
+            &file, 
+            &parsed_files, 
+            &file_path,
+        );
+        self.had_error = had_error;
+        self.functions.extend(functions);   
+        self.classes.extend(classes);
+        self.new_parsed_files.extend(files);
     }
 
     fn func_dec(&mut self) -> Result<(String, Func), ()>{
@@ -452,21 +494,22 @@ impl<'a> Parser<'a> {
             match self.consume_one_of(&[Token::RightParen, Token::Comma]) {
                 Some(t) => if t == &Token::RightParen { break; },
                 None => {
-                    self.report_error(&Spanned::new(
+                    self.report_error(&Spanned::from_other_span(
                         CTError::new(CTErrorKind::Unexpected(self.current.cloned())),
-                        self.current.start, self.current.len
+                        self.current
                         )
                     );
                 }
             }
         }
+        let file_id = self.current.file_id;
         let ret_type = match self.consume_ident() {
-            Ok(r) => Spanned::new(r.to_string(), 
-                self.previous.start, self.previous.len),
+            Ok(r) => Spanned::from_other_span(r.to_string(), 
+                self.previous),
             Err(_) => {
                 let in_between_spot = self.previous.start + self.previous.len;
-                Spanned::new("void".to_string(), 
-                    in_between_spot, self.current.start - in_between_spot)
+                Spanned::new_with_file_id("void".to_string(), 
+                    in_between_spot, self.current.start - in_between_spot, file_id)
             },
         };
         let body = self.block();
@@ -532,10 +575,11 @@ impl<'a> Parser<'a> {
         let right = self.expr_or_reported();
         do_or_report_and!(self, self.consume(&Token::Semicolon) => {});
         let (start, end) = Spanned::get_start_and_len(&start_span, self.previous);
-        Spanned::new(Stmt::Assignment { 
+        let file_id = self.current.file_id;
+        Spanned::new_with_file_id(Stmt::Assignment { 
             left: Box::new(left), 
             right: Box::new(right) 
-        }, start, end)
+        }, start, end, file_id)
     }
 
     fn compound_assignment(&mut self, left: Spanned<Expr>) -> Spanned<Stmt> {
@@ -553,16 +597,17 @@ impl<'a> Parser<'a> {
             _ => panic!(),
         };
         let (start, end) = Spanned::get_start_and_len(&start_span, self.previous);
-        Spanned::new(Stmt::Assignment { 
+        let file_id = self.current.file_id;
+        Spanned::new_with_file_id(Stmt::Assignment { 
             left: Box::new(left.clone()), 
-            right: Box::new(Spanned::new(
+            right: Box::new(Spanned::new_with_file_id(
                     Expr::Binary { 
                     op, 
                     left: Box::new(left), 
                     right: Box::new(expr), 
-                }, start, end
+                }, start, end, file_id
             ))
-        }, start, end)
+        }, start, end, file_id)
     }
 
     fn consume_ident(&mut self) -> Result<&'a str, Spanned<CTError>> {
@@ -571,6 +616,15 @@ impl<'a> Parser<'a> {
             Ok(s)
         } else {
             Err(self.make_error(CTErrorKind::ExpectedIdent))
+        }
+    } 
+    
+    fn consume_str(&mut self) -> Result<&'a str, Spanned<CTError>> {
+        if let Token::Str(s) = &**self.current {
+            self.advance();
+            Ok(s)
+        } else {
+            Err(self.make_error(CTErrorKind::ExpectedStr))
         }
     }
 
@@ -648,13 +702,14 @@ impl<'a> Parser<'a> {
             _ => panic!(),
         };
         let (start, end) = Spanned::get_start_and_len(&left, &right);
-        let mut span = Spanned::new(
+        let file_id = self.current.file_id;
+        let mut span = Spanned::new_with_file_id(
             Expr::new_binary(
                 Box::new(left),
                 Box::new(right),
                 op,
             ),
-            start, end
+            start, end, file_id
         );
         if poisoned { span.poison(); }
         let node = AstNode::Expr(span);
@@ -677,14 +732,15 @@ impl<'a> Parser<'a> {
             _ => panic!(),
         };
         let (start, size) = (token_start, 
-            (self.previous.start - token_start) + self.previous.len);
-        ast.nodes.push(AstNode::Expr(Spanned::new(Expr::Unary { 
+            (self.previous.start - token_start) + self.previous.len
+        );
+        let file_id = self.current.file_id;
+        ast.nodes.push(AstNode::Expr(Spanned::new_with_file_id(Expr::Unary { 
             expr: Box::new(expr)
-        }, start, size)));
+        }, start, size, file_id)));
     }
 
     fn object(&mut self, ast: &mut Ast) {
-        let (start, end) = (self.current.start, self.current.len);        
         match self.consume_ident() {
             Ok(ident) => {
                 if self.current.obj_ref() == &Token::LeftParen {
@@ -693,8 +749,8 @@ impl<'a> Parser<'a> {
                     );
                     self.func_call(ast, ident);
                 } else {
-                    ast.nodes.push(AstNode::Expr(Spanned::new(
-                        Expr::Var(ident.to_string()), start, end)
+                    ast.nodes.push(AstNode::Expr(Spanned::from_other_span(
+                        Expr::Var(ident.to_string()), self.current)
                     ));
                 }
             },
@@ -702,7 +758,7 @@ impl<'a> Parser<'a> {
                 self.advance();
                 self.report_error(&er);
                 ast.nodes.push(AstNode::Expr(Spanned::new_poisoned(
-                    Expr::Poison, start, end,
+                    Expr::Poison, self.current.start, self.current.len,
                 )))
             }
         };
@@ -710,10 +766,9 @@ impl<'a> Parser<'a> {
 
     fn literal(&mut self, ast: &mut Ast) {
         self.advance();
-        let (start, end) = (self.previous.start, self.previous.len);
-        ast.nodes.push(AstNode::Expr(Spanned::new(
+        ast.nodes.push(AstNode::Expr(Spanned::from_other_span(
             Expr::try_from_token(self.previous).unwrap(),
-            start, end)
+                self.previous)
         ));
     }
 
@@ -738,12 +793,13 @@ impl<'a> Parser<'a> {
         do_or_report_and!(self, self.consume(&Token::RightBracket) => {});
         let last_span = self.previous.just_span_data();
         let (start, len) = Spanned::get_start_and_len(&start_span, &last_span);
+        let file_id = self.current.file_id;
         ast.nodes.push(
-            AstNode::Expr(Spanned::new(
+            AstNode::Expr(Spanned::new_with_file_id(
                 Expr::Index { 
                     object: Box::new(object), 
                     i: Box::new(index) 
-                }, start, len))
+                }, start, len, file_id))
         )
     }
 
@@ -771,11 +827,12 @@ impl<'a> Parser<'a> {
         };
         let end = self.current.just_span_data();
         let (start, end) = Spanned::get_start_and_len(&start, &end);
-        let mut span = Spanned::new(
+        let file_id = self.current.file_id;
+        let mut span = Spanned::new_with_file_id(
             Expr::Get {
                 left: Box::new(left),
                 right: Box::new(right),
-            }, start, end
+            }, start, end, file_id
         );
         if poisoned { span.poison(); }
         ast.nodes.push(AstNode::Expr(span))
@@ -850,11 +907,13 @@ impl<'a> Parser<'a> {
                 self.report_error(&er);
             }
         }
+        let file_id = self.current.file_id;
         ast.nodes.push(AstNode::Expr(
-            Spanned::new(
+            Spanned::new_with_file_id(
                 Expr::Call { name, args, }, 
                 self.previous.start - start,
-                self.previous.start + self.previous.len - start
+                self.previous.start + self.previous.len - start,
+                file_id
             )
         ));
     }
@@ -896,16 +955,15 @@ impl<'a> Parser<'a> {
     }
 
     fn make_error(&self, error: CTErrorKind) -> Spanned<CTError> {
-        Spanned::new(
-            CTError { kind: error },
-            self.current.start,
-            self.current.len,
+        Spanned::from_other_span(
+            CTError::new(error),
+            self.current
         )
     }
 
     fn report_error(&mut self, error: &Spanned<CTError>) {
         self.had_error = true;
-        super::error::report_error(error, self.txt);
+        super::error::report_error(error, &self.new_parsed_files);
     }
 
     fn is_at_end(&self) -> bool {

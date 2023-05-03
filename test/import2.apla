@@ -1,0 +1,9 @@
+import "test/import3";
+
+func get_a_number() int {
+    return 2 + 2.12;
+}
+
+func get_another_number() int {
+    return import3_func() * 8;
+}

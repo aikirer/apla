@@ -13,7 +13,7 @@ pub enum Token {
     GreaterEqual, PlusPlus, MinusMinus,
 
     Func, For, While, Class, Enum, If, Else, Break, Continue,
-    Return, Var, Mut,
+    Return, Var, Mut, Import,
 
     Bool(bool), Number(i32), Float(f32), Identifier(String), Str(String),
     
@@ -80,6 +80,7 @@ impl Display for Token {
             Token::Float(f) => f.to_string(),
             Token::Identifier(id) => id.to_string(),
             Token::Str(s) => format!("\"{s}\""),
+            Token::Import => "import".to_string(),
             Token::Eof => "".to_string(),
         };
         write!(f, "{text}")
@@ -108,6 +109,7 @@ pub fn str_to_reserved(str: &str) -> Option<Token> {
         "return" => Some(Return),
         "var" => Some(Var),
         "mut" => Some(Mut),
+        "import" => Some(Import),
         "true" => Some(Bool(true)),
         "false" => Some(Bool(false)),
         _ => None

@@ -88,7 +88,6 @@ impl Call for ParsedFunc {
                 {
                     match got_type {
                         Ok(t) => if t != *expected_type {
-                            println!("{t:?} /// {expected_type:?}");
                             return Err(
                                 Spanned::from_other_span(CTError::new(
                                     CTErrorKind::MismatchedTypes(

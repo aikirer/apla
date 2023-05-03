@@ -1,4 +1,10 @@
+pub const LOG: bool = false;
+
+use std::collections::HashMap;
+
 use apla_std::Std;
+use class::Class;
+use compile_time::{util::func::Func, ast::Ast};
 use scanner::Scanner;
 
 use crate::{
@@ -18,28 +24,39 @@ pub mod class;
 pub mod apla_std;
 pub mod named_obj_container;
 
-pub fn run(input: String) -> Result<(), ()> {
-    let apla_std = Std::new();
-    let mut scanner = Scanner::new(&input);
-    let tokens = crate::measure_time!(scanner.scan(), "scanning");
-    let parser = Parser::new(tokens, &input);
-    let (mut ast, had_error, mut functions, classes) = {
+pub fn parse_file(
+    input: &str, parsed_files: &[&str], parsing_file: &str,
+) -> (Ast, bool, HashMap<String, Func>, HashMap<String, Class>, Vec<(String, String)>) 
+{
+    let scanner = Scanner::new(&input); 
+    let mut tokens = crate::measure_time!(scanner.scan(), "scanning");
+    for token in tokens.iter_mut() {
+        token.file_id = parsed_files.len().try_into().unwrap();
+    }
+    let parser = Parser::new(&tokens, &input, parsing_file, parsed_files);
+    let (ast, had_error, functions, classes, files) = {
         let comp = crate::measure_time!(parser.parse(), "parsing");
-        (comp.ast, comp.had_error, comp.functions, comp.classes)
+        (comp.ast, comp.had_error, comp.functions, comp.classes, comp.new_parsed_files)
     };
+    (ast, had_error, functions, classes, files)
+}
+
+pub fn run(input: String, parsed_files: &[&str], file_name: &str) -> Result<(), ()> {
+    let apla_std = Std::new();
+    let (mut ast, had_error, mut functions, classes, files) =
+        parse_file(&input, parsed_files, file_name);
     if had_error {
         return Err(())
-    } 
+    }
     crate::measure_time!({
         ast.optimize();
         for code in functions.values_mut() {
             code.node.optimize();
         }
     }, "optimizing");
-    // println!("ast after optimizing: {ast:?}");
     let callables = crate::measure_time!(
         match Resolver::resolve(
-            &mut ast, &input, &functions, classes, apla_std
+            &mut ast, &functions, classes, apla_std, files
         ) 
         {
             Ok(functions) => functions,
@@ -52,7 +69,7 @@ pub fn run(input: String) -> Result<(), ()> {
         let compiler = Compiler::new(&ast, callables);
         crate::measure_time!(compiler.compile(), "compiling")
     };
-    println!("generated code: {bytecode:?}");
+    log(format!("generated code: {bytecode:?}"));
     let functions = callables.iter()
         .map(|(name, callable)| (name.to_string(), callable.as_ref()))
         .collect();
@@ -70,7 +87,7 @@ pub fn repl() {
             eprintln!("Couldn't read input! {er}");
             std::process::exit(1);
         };
-        _ = run(buf);
+        _ = run(buf, &[], "");
     }
 }
 
@@ -82,17 +99,26 @@ pub fn run_file(file_name: &str) {
             std::process::exit(1);
         }
     };
-    _ = run(content);
+    _ = run(content, &[file_name], file_name);
+}
+
+fn log(str: String) {
+    if LOG {
+        println!("{str}");
+    }
 }
 
 #[macro_export]
 macro_rules! measure_time {
     ($func: expr, $name: expr) => {{      
         let start = std::time::Instant::now();
-        let r = $func;
-        println!("{} took {}ms", $name, std::time::Instant::now()
+        let result = $func;
+        if LOG {        
+            log(format!("{} took {}ms", $name, std::time::Instant::now()
                 .duration_since(start)
-                .as_millis());
-        r
+                .as_millis()));
+        }
+
+        result
     }};
 }

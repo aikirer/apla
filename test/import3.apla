@@ -1,0 +1,5 @@
+import "test/import2";
+
+func import3_func() int {
+    return get_a_number() * (get_a_number() + 3);
+}

@@ -1,0 +1,6 @@
+import "test/import2";
+2 + 2.12;
+std(print(get_a_number()));
+std(print(get_another_number()));
+
+func fun() {}

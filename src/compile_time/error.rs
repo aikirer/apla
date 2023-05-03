@@ -118,12 +118,14 @@ impl Display for CTErrorKind {
     }
 }
 
-pub fn report_error(error: &Spanned<CTError>, text: &str) {
+pub fn report_error(error: &Spanned<CTError>, files: &Vec<(String, String)>) {
+    println!("{error:?}");
+    let (file_name, text) = &files[error.file_id as usize];
     print!(" | [error] {}", **error);
     let mut at_char = error.start;
     let mut at_char_on_new_line = at_char;
     if at_char >= text.len() {
-        println!("\n | Couldn't find the token in the code! (Does the error occur at the end of the file?)");
+        println!("\n | Couldn't find the token in the code! (Does the error occur at the end of the file?)\n");
         return;
     }
     // that doesn't look very good
@@ -136,7 +138,7 @@ pub fn report_error(error: &Spanned<CTError>, text: &str) {
     }).count();
     let at_char = at_char_on_new_line;
     let line = text.lines().nth(at_line).unwrap();
-    println!(" [line {}]", at_line + 1);
+    println!(" ['{file_name}', line {}]", at_line + 1);
     let prev_len = line.len() - 1;
     let line = line.trim_start();
     let at_char = at_char - (prev_len - (line.len() - 1));
@@ -147,5 +149,5 @@ pub fn report_error(error: &Spanned<CTError>, text: &str) {
     for _ in 0..error.len {
         print!("^");
     }
-    println!()
+    println!("\n")
 }

@@ -2,3 +2,6 @@ mut var x = 2;
 std(print(x));
 x += 3;
 std(print(x));
+var y = "string a";
+std(print(std(strlen(y))));
+y[2];

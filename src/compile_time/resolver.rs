@@ -8,19 +8,19 @@ use super::{util::{variable::Variable, scope::Scope, func::{Func, ParsedFunc}}, 
 
 pub type FunctionBundle = (Func, ParsedFunc);
 
-pub struct Resolver<'a> {
+pub struct Resolver {
     callables: HashMap<String, Box<dyn Call>>,
     scope: Scope,
-    text: &'a str,
+    files: Vec<(String, String)>,
     had_error: bool,
     expected_return_type: ExprType,
 }
 
-impl<'a> Resolver<'a> {
+impl Resolver {
     pub fn resolve(
-        ast: &'a mut Ast, text: &'a str, functions: &'a HashMap<String, Func>,
-        classes: HashMap<String, Class>,
-        apla_std: Std,
+        ast: &mut Ast, functions: &HashMap<String, Func>,
+        classes: HashMap<String, Class>, apla_std: Std, 
+        files: Vec<(String, String)>
     ) ->  Result<HashMap<String, Box<dyn Call>>, ()>
     {
         // translate_ast_method_calls(ast, classes)
@@ -29,8 +29,8 @@ impl<'a> Resolver<'a> {
         let mut new_self = Self {
             scope: Scope::new(),
             callables: callables,
-            text,
             had_error: false,
+            files,
             expected_return_type: ExprType::Null,
         };
 
@@ -55,8 +55,9 @@ impl<'a> Resolver<'a> {
                 (name.to_string(), (func.clone(), new_self.parse_func(func)))
             )
             .collect::<HashMap<_, _>>();
-         
         
+        let mut nodes_to_resolve = vec![];
+
         for (name, (orig_func, parsed_func)) in functions {
             new_self.scope.add_scope();
             for arg in parsed_func.args.iter() {
@@ -64,12 +65,14 @@ impl<'a> Resolver<'a> {
             }
             new_self.expected_return_type = parsed_func.return_type.clone();
             new_self.callables.insert(name.to_string(), Box::new(parsed_func) as Box<dyn Call>);
-            translate_ast_method_calls(ast, &classes, vec![]);
-            new_self.resolve_node(&orig_func.node);
+            nodes_to_resolve.push(orig_func.node.clone());
             new_self.scope.pop_scope();
             new_self.expected_return_type = ExprType::Null;
         };
-
+        for node in nodes_to_resolve {
+            new_self.resolve_node(&node);
+        }
+        
         translate_ast_method_calls(ast, &classes, vec![]);           
         for (_, class) in &classes {
             let this = Variable::new(ExprType::Class(class.clone()), false, true);
@@ -129,16 +132,16 @@ impl<'a> Resolver<'a> {
                         result.push(var)
                     },
                     _ => {
-                        self.report_error(&Spanned::new(
+                        self.report_error(&Spanned::from_other_span(
                             CTError::new(CTErrorKind::ExpectedVarCreation),
-                            s.start, s.len
+                            s
                         ));
                     }
                 },
                 AstNode::Expr(e) => {
-                    self.report_error(&Spanned::new(
+                    self.report_error(&Spanned::from_other_span(
                         CTError::new(CTErrorKind::ExpectedStmt),
-                        e.start, e.len
+                        e
                     ));
                 }
             }
@@ -146,9 +149,9 @@ impl<'a> Resolver<'a> {
         let mut new_result = NamedObjContainer::new();
         for (name, var) in result {
             if var.ty == ExprType::ToBeInferred {
-                self.report_error(&Spanned::new(
+                self.report_error(&Spanned::from_other_span(
                     CTError::new(CTErrorKind::TypeNotAnnotated), 
-                    name.start, name.len
+                    &name
                 ));
             }
             new_result.insert(&name.to_string(), var);
@@ -161,9 +164,9 @@ impl<'a> Resolver<'a> {
         let ret_type = match self.str_to_type(&func.return_type) {
             Ok(ty) => {
                 if ty == ExprType::ToBeInferred {
-                    self.report_error(&Spanned::new(
+                    self.report_error(&Spanned::from_other_span(
                         CTError::new(CTErrorKind::TypeNotAnnotated), 
-                        func.return_type.start, func.return_type.len
+                        &func.return_type
                     ));
                 }
                 ty
@@ -199,10 +202,10 @@ impl<'a> Resolver<'a> {
                 let var = self.get_var(n, expr)?;
                 if !var.is_init() {
                     return Err(
-                        make_error(
-                            CTErrorKind::UninitVarUsed(n.to_string()), 
-                            expr.start, expr.len
-                    ));
+                        Spanned::from_other_span(
+                            CTError::new(CTErrorKind::UninitVarUsed(n.to_string())), 
+                            expr
+                        ));
                 }
                 Ok(var.ty.clone())
             },
@@ -212,15 +215,15 @@ impl<'a> Resolver<'a> {
                 let allowed_types = op.get_legal_types();
                 if !allowed_types.contains(&ExprType::Any) {    
                     if t1 != t2 {
-                        return Err(make_error(
-                            CTErrorKind::MismatchedTypes(t1, t2),
-                            expr.start, expr.len,
-                        ));
+                        return Err(
+                            Spanned::from_other_span(
+                                CTError::new(CTErrorKind::MismatchedTypes(t1, t2), 
+                            ), expr));
                     }
                     if !allowed_types.contains(&t1) {
-                        return Err(make_error(
-                            CTErrorKind::CantUseOpForTypes(op.clone(), t1),
-                            expr.start, expr.len,
+                        return Err(Spanned::from_other_span(
+                            CTError::new(CTErrorKind::CantUseOpForTypes(op.clone(), t1)),
+                            expr
                         ));
                     }
                 }
@@ -235,8 +238,10 @@ impl<'a> Resolver<'a> {
                 match self.resolve_expr(expr)? {
                     t @ (ExprType::Int | ExprType::Float |
                     ExprType::Bool) =>  Ok(t),
-                    t => Err(make_error(CTErrorKind::CantNegateType(t), 
-                        expr.start, expr.len)),
+                    t => Err(Spanned::from_other_span(CTError::new(
+                            CTErrorKind::CantNegateType(t)
+                        ), 
+                        &expr)),
                 }
             },
             Expr::Call { name, args: _ } => {
@@ -245,12 +250,14 @@ impl<'a> Resolver<'a> {
                         f.resolve(expr, self)?;
                         Ok(f.get_return_type(expr))
                     }
-                    None => Err(
+                    None => {
+                        Err(
                             Spanned::from_other_span(
                                 CTError::new(
                                     CTErrorKind::FuncDoesntExist(name.to_string())
                                 ), name)
-                        ),
+                        )
+                    }
                 }
             },
             Expr::Index { object, i } => {
@@ -278,7 +285,6 @@ impl<'a> Resolver<'a> {
                 let left = self.resolve_expr(&left)?;
                 let obj = match &left {
                     ExprType::ClassThis => {
-                        println!("{:?}", self.scope);
                         match self.scope.get_var("this") {
                             Ok(v) => match &v.ty {
                                 ExprType::Class(c) => c,
@@ -372,10 +378,10 @@ impl<'a> Resolver<'a> {
                             }
                         };
                         if ty != ty1 {
-                            self.report_error(&Spanned::new(
+                            self.report_error(&Spanned::from_other_span(
                                 CTError::new(CTErrorKind::MismatchedTypes(
                                     ty, ty1)),
-                                left.start, left.len
+                                left,
                             ));
                         }
                     },
@@ -404,9 +410,9 @@ impl<'a> Resolver<'a> {
                     }
                 };
                 if cond_type != ExprType::Bool && cond_type != ExprType::Any {
-                    self.report_error(&Spanned::new(CTError::new(
+                    self.report_error(&Spanned::from_other_span(CTError::new(
                         CTErrorKind::MismatchedTypes(ExprType::Bool, cond_type)
-                    ), condition.start, condition.len))
+                    ), condition))
                 }
                 self.resolve_node(true_branch);
                 if let Some(node) = false_branch {
@@ -471,9 +477,9 @@ impl<'a> Resolver<'a> {
             match self.str_to_type(&ty) {
                 Ok(t) => {
                     if t == ExprType::ToBeInferred {
-                        self.report_error(&Spanned::new(CTError::new(
+                        self.report_error(&Spanned::from_other_span(CTError::new(
                             CTErrorKind::CantInferType), 
-                            stmt.start, stmt.len
+                            stmt,
                         ))
                     }
                     var_type = t;
@@ -494,9 +500,9 @@ impl<'a> Resolver<'a> {
                                 t = t2;
                             } else if t != t2 {
                                 poisoned = true;
-                                self.report_error(&Spanned::new(CTError::new(
+                                self.report_error(&Spanned::from_other_span(CTError::new(
                                     CTErrorKind::MismatchedTypes(t.clone(), t2)), 
-                                    value.start, value.len
+                                    value,
                                 ));
                             }
                             
@@ -525,9 +531,9 @@ impl<'a> Resolver<'a> {
             Expr::Var(n) => {
                 let var = self.get_var(n, expr)?;
                 if !var.is_mut && var.is_init() {
-                    return Err(Spanned::new(
+                    return Err(Spanned::from_other_span(
                         CTError::new(CTErrorKind::CantAssignToConst),
-                        expr.start, expr.len
+                        expr,
                     ));
                 }
                 Ok(var)
@@ -583,16 +589,16 @@ impl<'a> Resolver<'a> {
                     _ => todo!(),
                 }
             }
-            _ => Err(Spanned::new(
+            _ => Err(Spanned::from_other_span(
                 CTError::new(CTErrorKind::ExpectedPlace),
-                expr.start, expr.len,
+                expr,
             )),
         }
     }
 
     pub fn report_error(&mut self, error: &Spanned<CTError>) {
         self.had_error = true;
-        report_error(error, self.text);
+        report_error(error, &self.files);
     }
 
     fn get_callable(&self, name: &str) -> Option<&dyn Call> {
@@ -652,18 +658,5 @@ impl<'a> Resolver<'a> {
                     .map(|ty| if is_pointer { ty.as_pointer(mut_pointer) } else { ty })
             }
         }
-    }
-}
-
-
-fn make_error(
-    kind: CTErrorKind, start: usize, len: usize,
-) -> Spanned<CTError>
-{
-    Spanned {
-        obj: CTError::new(kind),
-        start,
-        len,
-        poisoned: false,
     }
 }

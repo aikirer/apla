@@ -19,7 +19,7 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan(&mut self) -> &[Spanned<Token>] {
+    pub fn scan(mut self) -> Vec<Spanned<Token>> {
         while self.advance().is_some() {
             if self.skip_whitespace().is_none() { break; }
             use Token as T;
@@ -55,7 +55,7 @@ impl<'a> Scanner<'a> {
             self.add(token);
         }
         self.add(Token::Eof);
-        &self.result
+        self.result
     }
 
     fn collect_chars_while<F>(&mut self, mut f: F) -> String

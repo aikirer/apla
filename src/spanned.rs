@@ -1,17 +1,24 @@
 use std::{ops::{Deref, DerefMut}, fmt::Debug};
 
+#[derive(Debug)]
 pub struct Spanned<T> {
     pub obj: T,
     pub start: usize,
     pub len: usize,
     pub poisoned: bool,
+    pub file_id: u8,
 }
 
 impl<T> Spanned<T> {
     pub fn new(obj: T, start: usize, len: usize) -> Self {
+        Self::new_with_file_id(obj, start, len, 0)
+    }
+
+    pub fn new_with_file_id(obj: T, start: usize, len: usize, file_id: u8) -> Self {
         Self {
             obj, start, len, 
-            poisoned: false
+            poisoned: false,
+            file_id,
         }
     }
 
@@ -49,16 +56,11 @@ impl<T> Spanned<T> {
     }
 
     pub fn from_other_span<E>(obj: T, span: &Spanned<E>) -> Self {
-        Spanned::new(obj, span.start, span.len)
+        Spanned::new_with_file_id(obj, span.start, span.len, span.file_id)
     }
 
     pub fn just_span_data(&self) -> Spanned<()> {
-        Spanned {
-            obj: (),
-            start: self.start,
-            len: self.len,
-            poisoned: self.poisoned,
-        }
+        Spanned::from_other_span((), self)
     }
 }
 
@@ -91,15 +93,6 @@ impl<T> Deref for Spanned<T> {
 impl<T> DerefMut for Spanned<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.obj
-    }
-}
-
-impl<T> Debug for Spanned<T> 
-where
-    T: Debug
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.obj)
     }
 }
 
