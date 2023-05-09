@@ -1,5 +1,5 @@
 # apla
-Apla is a simple programming language that has no reason to actually exist. It's not suited for any practical use.
+Apla is a simple interpreted programming language. It's not suited for any practical use.
 ## syntax
 Code blocks will use the following convention here:
 ```js
