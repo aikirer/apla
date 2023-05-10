@@ -17,6 +17,8 @@ impl Std {
             StdFunc::new(&[ExprType::Any], Box::new(Self::rust_dbg_print), ExprType::Null));
         functions.insert("read".to_string(),
             StdFunc::new(&[], Box::new(Self::read), ExprType::String));
+        functions.insert("strlen".to_string(),
+            StdFunc::new(&[ExprType::String], Box::new(Self::strlen), ExprType::Int));
         functions.insert("str_to_int".to_string(),
             StdFunc::new(
                 &[ExprType::String], 
@@ -58,6 +60,14 @@ impl Std {
             }
         };
         StackVal::String(buf.trim().to_string())
+    }
+
+    fn strlen(args: &[StackVal]) -> StackVal {
+        let arg = match &args[0] {
+            StackVal::String(s) => s,
+            _ => panic!(),
+        };
+        StackVal::Int(arg.len() as i32)
     }
 
     fn str_to_int(args: &[StackVal]) -> StackVal {

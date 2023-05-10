@@ -9,7 +9,7 @@ use scanner::Scanner;
 
 use crate::{
     compile_time::{parser::Parser, 
-        ast_compiler::Compiler, optimize::Optimize, resolver::Resolver}, 
+        ast_compiler::Compiler, resolver::Resolver}, 
     run_time::vm::VM
 };
 
@@ -31,7 +31,7 @@ pub fn parse_file(
     let scanner = Scanner::new(&input); 
     let mut tokens = crate::measure_time!(scanner.scan(), "scanning");
     for token in tokens.iter_mut() {
-        token.file_id = (parsed_files.len() - 1).try_into().unwrap();
+        token.file_id = (parsed_files.len().checked_sub(1).unwrap_or(0)).try_into().unwrap_or(0);
     }
     let parser = Parser::new(&tokens, &input, parsing_file, parsed_files);
     let (ast, had_error, functions, classes, files) = {
@@ -49,9 +49,9 @@ pub fn run(input: String, parsed_files: &[&str], file_name: &str) -> Result<(), 
         return Err(())
     }
     crate::measure_time!({
-        ast.optimize();
-        for code in functions.values_mut() {
-            code.node.optimize();
+        // ast.optimize();
+        for _code in functions.values_mut() {
+            // code.node.optimize();
         }
     }, "optimizing");
     let callables = crate::measure_time!(

@@ -116,7 +116,17 @@ impl<'a> VM<'a> {
                     continue;
                 },
 
-                OpIndex => todo!(),
+                OpIndex => {
+                    let index = match self.stack.pop()? {
+                        StackVal::Int(i) => i as usize,
+                        _ => panic!()
+                    };
+                    match self.stack.pop()? {
+                        StackVal::String(s) => self.stack.push(s[index..=index].to_string()),
+                        StackVal::Slice(_) => todo!(),
+                        _ => panic!()
+                    }
+                },
                 OpGetField(name) => {
                     let obj = self.stack.pop_object()?;
                     self.stack.push(Rc::clone(

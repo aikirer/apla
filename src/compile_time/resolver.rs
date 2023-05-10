@@ -362,6 +362,14 @@ impl Resolver {
                 self.scope.add_var(&name, var)
             },
             Stmt::Assignment { left, right } => {
+                match left.obj_ref() {
+                    Expr::Index { object: _, i: _ } => {
+                        self.report_error(&Spanned::from_other_span(
+                            CTError::new(CTErrorKind::CantAssignToIndex), 
+                            &**left))
+                    },
+                    _ => (),
+                }
                 let ty1 = match self.resolve_expr(right) {
                     Ok(t) => t,
                     Err(er) => {

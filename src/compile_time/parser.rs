@@ -684,7 +684,7 @@ impl<'a> Parser<'a> {
             },
         };  
         self.advance();
-        self.parse_prec(op.prec_level(), ast);
+        self.parse_prec(op.prec_level().one_up(), ast);
         let right = match ast.nodes.pop() {
             Some(node) => node,
             None => {

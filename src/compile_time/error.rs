@@ -31,7 +31,7 @@ pub enum CTErrorKind {
     CantAssignToConstPtr,
     TypeNotAnnotated,
     ExpectedFuncCall,
-    CantIndex,
+    CantAssignToIndex,
     CantDeref,
     CantTakeMutPtrOfConst,
 
@@ -112,7 +112,7 @@ impl Display for CTErrorKind {
                 "This cannot be dereferenced!".to_string(),
             Self::CantTakeMutPtrOfConst =>
                 "Cannot take a mutable pointer of a const variable!".to_string(),
-            Self::CantIndex => "Indexing is unstable!".to_string(),
+            Self::CantAssignToIndex => "Cannot assign using indexing right now!".to_string(),
             Self::Poisoned => "poisoned".to_string(),
         })
     }

@@ -1,0 +1,14 @@
+func palindrome(string: str) bool {
+    var len = std(strlen(string));
+    var max_index = len / 2;
+    mut var at = 0;
+    while (at < max_index) {
+        if (string[at] != string[len - 1 - at]) return false;
+        at += 1;
+    }
+    return true;
+}
+
+var input = std(read());
+if (palindrome(input)) std(print("Palindrome"));
+else std(print("not a palindrome"));

@@ -5,14 +5,10 @@ class A {
         this.x = 2;
     }
 }
-
-func f(this: ^mut A) {
-    this.x = 2;
-}
  
 
 mut var a = A();
 a.x = 4;
 std(print(a.x));
-f(@mut a);
+a.f();
 std(print(a.x));

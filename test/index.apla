@@ -1,4 +1,3 @@
-mut var string = "a stRing :)";
-std(print(string[3]));
-string[2] = "u";
-std(print(string));
+mut var string = "asd";
+std(print(string[2]));
+string[2] = "a";

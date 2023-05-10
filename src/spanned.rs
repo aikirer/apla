@@ -1,6 +1,5 @@
 use std::{ops::{Deref, DerefMut}, fmt::Debug};
 
-#[derive(Debug)]
 pub struct Spanned<T> {
     pub obj: T,
     pub start: usize,
@@ -102,5 +101,14 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         self.obj == other.obj
+    }
+}
+
+impl<T> Debug for Spanned<T>
+where
+    T: Debug
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.obj)
     }
 }

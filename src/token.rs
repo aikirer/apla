@@ -126,6 +126,23 @@ pub enum PrecedenceLevel {
     Term, Factor, Unary, Primary,
 }
 
+impl PrecedenceLevel {
+    pub fn one_up(&self) -> Self {
+        match self {
+            Self::None => Self::Assignment,
+            Self::Assignment => Self::Or,
+            Self::Or => Self::And,
+            Self::And => Self::Equality,
+            Self::Equality => Self::Comparison,
+            Self::Comparison => Self::Term,
+            Self::Term => Self::Factor,
+            Self::Factor => Self::Unary,
+            Self::Unary => Self::Primary,
+            Self::Primary => Self::Primary,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ExprRole {
     Literal, Grouping, Binary, None, Unary, Object, Index,
