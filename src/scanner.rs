@@ -119,7 +119,7 @@ impl<'a> Scanner<'a> {
             while self.current != '\n' {
                 self.advance()?;
             }
-            self.skip_whitespace();
+            self.skip_whitespace()?;
         }
         Some(())
     }

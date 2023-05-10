@@ -1,6 +1,6 @@
 pub const LOG: bool = false;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use apla_std::Std;
 use class::Class;
@@ -102,7 +102,7 @@ pub fn run_file(file_name: &str) {
     _ = run(content, &[file_name], file_name);
 }
 
-fn log(str: String) {
+fn log(str: impl Display) {
     if LOG {
         println!("{str}");
     }

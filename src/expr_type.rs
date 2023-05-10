@@ -106,10 +106,12 @@ impl PartialEq for ExprType {
                 Self::Class(b) => a.name == b.name,
                 _ => false,
             }
-            Self::Pointer { points_to, is_mut: _ } => {
+            Self::Pointer { points_to, is_mut } => {
+                let is_mut_first = is_mut;
                 let points_to_first = points_to;
                 match other {
-                    Self::Pointer { points_to, is_mut: _ } => points_to == points_to_first,
+                    Self::Pointer { points_to, is_mut } => 
+                        points_to == points_to_first && is_mut == is_mut_first,
                     _ => false,
                 }
             },
