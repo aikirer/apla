@@ -124,6 +124,7 @@ pub fn report_error(error: &Spanned<CTError>, files: &Vec<(String, String)>) {
     let mut at_char = error.start;
     let mut at_char_on_new_line = at_char;
     let mut len = error.len;
+    // this is horrible but this is being rewritten anyway
     let at_line = if at_char >= text.len() {
         len += 1;
         at_char_on_new_line = text.lines().last().unwrap().len();

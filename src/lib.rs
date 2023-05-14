@@ -1,6 +1,6 @@
 pub const LOG: bool = false;
 
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::HashMap, fmt::Display, io::Write};
 
 use apla_std::Std;
 use class::Class;
@@ -10,7 +10,7 @@ use scanner::Scanner;
 use crate::{
     compile_time::{parser::Parser, 
         ast_compiler::Compiler, resolver::Resolver}, 
-    run_time::vm::VM
+    run_time::{vm::VM, stack::StackVal}
 };
 
 pub mod expr_type;
@@ -41,7 +41,7 @@ pub fn parse_file(
     (ast, had_error, functions, classes, files)
 }
 
-pub fn run(input: String, parsed_files: &[&str], file_name: &str) -> Result<(), ()> {
+pub fn run(input: String, parsed_files: &[&str], file_name: &str, repl: bool) -> Result<(), ()> {
     let apla_std = Std::new();
     let (mut ast, had_error, mut functions, classes, files) =
         parse_file(&input, parsed_files, file_name);
@@ -77,17 +77,22 @@ pub fn run(input: String, parsed_files: &[&str], file_name: &str) -> Result<(), 
     if let Err(er) = crate::measure_time!(vm.execute(&bytecode), "executing") {
         println!("[RUNTIME ERROR] {er}");
     }
+    if repl {
+        println!("{}", vm.stack.pop().unwrap_or(StackVal::from("no result".to_string())));
+    }
     Ok(())
 }
 
 pub fn repl() {
     loop {
         let mut buf = String::new();
+        print!("> ");
+        std::io::stdout().flush().unwrap();
         if let Err(er) = std::io::stdin().read_line(&mut buf) {
             eprintln!("Couldn't read input! {er}");
             std::process::exit(1);
         };
-        _ = run(buf, &[], "");
+        _ = run(buf, &[], "", true);
     }
 }
 
@@ -99,7 +104,7 @@ pub fn run_file(file_name: &str) {
             std::process::exit(1);
         }
     };
-    _ = run(content, &[file_name], file_name);
+    _ = run(content, &[file_name], file_name, false);
 }
 
 fn log(str: impl Display) {
