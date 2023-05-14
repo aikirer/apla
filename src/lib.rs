@@ -112,12 +112,10 @@ fn log(str: impl Display) {
 macro_rules! measure_time {
     ($func: expr, $name: expr) => {{      
         let start = std::time::Instant::now();
-        let result = $func;
-        if LOG {        
-            log(format!("{} took {}ms", $name, std::time::Instant::now()
-                .duration_since(start)
-                .as_millis()));
-        }
+        let result = $func;   
+        log(format!("{} took {}ms", $name, std::time::Instant::now()
+            .duration_since(start)
+            .as_millis()));
 
         result
     }};
