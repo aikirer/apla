@@ -123,18 +123,21 @@ pub fn report_error(error: &Spanned<CTError>, files: &Vec<(String, String)>) {
     print!(" | [error] {}", **error);
     let mut at_char = error.start;
     let mut at_char_on_new_line = at_char;
-    if at_char >= text.len() {
-        println!("\n | Couldn't find the token in the code! (Does the error occur at the end of the file?)\n");
-        return;
-    }
-    // that doesn't look very good
-    let at_line = text[..at_char].chars().filter(|c| {
-        at_char -= 1;
-        if *c == '\n' {
-            at_char_on_new_line = at_char;
-            true
-        } else { false }
-    }).count();
+    let mut len = error.len;
+    let at_line = if at_char >= text.len() {
+        len += 1;
+        at_char_on_new_line = text.lines().last().unwrap().len();
+        text.lines().count() - 1
+    } else {
+        text[..at_char].chars().filter(|c| {
+            at_char -= 1;
+            if *c == '\n' {
+                at_char_on_new_line = at_char;
+                true
+            } else { false }
+        }).count()
+    };
+
     let at_char = at_char_on_new_line;
     let line = text.lines().nth(at_line).unwrap();
     println!(" ['{file_name}', line {}]", at_line + 1);
@@ -145,7 +148,7 @@ pub fn report_error(error: &Spanned<CTError>, files: &Vec<(String, String)>) {
     for _ in 0..at_char {
         print!(" ");
     }
-    for _ in 0..error.len {
+    for _ in 0..len {
         print!("^");
     }
     println!("\n")
